@@ -1,4 +1,5 @@
 //Feito por: Fabio Ganum Filho - 15450803
+//Feito por: Lucas Alves da Silva - 11819553
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,14 +88,48 @@ int main (){
             free(nomeArq);
             break;
         
-        case 5:
-            /* code */
+         case 5: {
+            char *nomeArquivo = (char *) calloc(50, sizeof(char));
+            scanf(" %49s", nomeArquivo);
+            FILE *bin = fopen(nomeArquivo, "rb+");
+            if (bin == NULL) {
+                printf("Falha no processamento do arquivo.\n");
+                free(nomeArquivo);
+                return 0;
+            }
+
+            statusCab(nomeArquivo, 0);
+            insercao(bin);
+            statusCab(nomeArquivo, 1);
+
+            fclose(bin);
+            BinarioNaTela(nomeArquivo);
+            free(nomeArquivo);
             break;
-    
-        case 6:
-            /* code */
-            break;   
         }
+
+        case 6: {
+            char *nomeArquivo = (char *) calloc(50, sizeof(char));
+            scanf(" %49s", nomeArquivo);
+            FILE *bin = fopen(nomeArquivo, "rb+");
+            if (bin == NULL) {
+                printf("Falha no processamento do arquivo.\n");
+                free(nomeArquivo);
+                return 0;
+            }
+
+            statusCab(nomeArquivo, 0);
+            atualizacao(bin);
+            statusCab(nomeArquivo, 1);
+
+            fclose(bin);
+            BinarioNaTela(nomeArquivo);
+            free(nomeArquivo);
+            break;
+        }
+
+        default:
+            break;
     }
 
     return 0;
