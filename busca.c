@@ -153,3 +153,71 @@ void exclusao (FILE *bin){
     
     rewind(bin);
 }
+
+void insercao(FILE *bin) {
+    int n;
+    scanf(" %d", &n);
+
+    Cabecalho_s cab = lerCab(bin);
+
+    for (int i = 0; i < n; i++) {
+        Registro_s reg;
+        lerRegistroInsercao(&reg);
+
+        if (cab.topo != -1) {
+            int rrnInsercao = cab.topo;
+            fseek(bin, 17 + rrnInsercao * 80 + 1, SEEK_SET);
+            fread(&cab.topo, sizeof(int), 1, bin);
+            fseek(bin, 17 + rrnInsercao * 80, SEEK_SET);
+            escreverReg(bin, reg);
+        } else {
+            fseek(bin, 17 + cab.proxRRN * 80, SEEK_SET);
+            escreverReg(bin, reg);
+            cab.proxRRN++;
+        }
+
+        liberarReg(&reg);
+    }
+
+    escreverCab(cab, bin);
+    recalcularCabecalho(bin);
+}
+
+void atualizacao(FILE *bin) {
+    int n;
+    scanf(" %d", &n);
+
+    for (int i = 0; i < n; i++) {
+        int m, p;
+        scanf(" %d", &m);
+        Parametros_s *buscaPar = (Parametros_s *) malloc((size_t) m * sizeof(Parametros_s));
+        lerParametros(buscaPar, m);
+
+        scanf(" %d", &p);
+        Parametros_s *atualizaPar = (Parametros_s *) malloc((size_t) p * sizeof(Parametros_s));
+        lerParametros(atualizaPar, p);
+
+        fseek(bin, 17, SEEK_SET);
+
+        Registro_s reg;
+        while (fread(&reg.removido, sizeof(char), 1, bin) == 1) {
+            long int posInicio = ftell(bin) - 1;
+            lerReg(bin, &reg);
+
+            if (reg.removido == '0' && comparacoes(bin, reg, buscaPar, m - 1) == 0) {
+                aplicarAtualizacoes(&reg, atualizaPar, p);
+                reg.removido = '0';
+                reg.proximo = -1;
+                fseek(bin, posInicio, SEEK_SET);
+                escreverReg(bin, reg);
+            }
+
+            liberarReg(&reg);
+        }
+
+        free(buscaPar);
+        free(atualizaPar);
+    }
+
+    recalcularCabecalho(bin);
+}
