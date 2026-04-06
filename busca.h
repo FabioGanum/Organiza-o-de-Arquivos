@@ -10,5 +10,7 @@ struct parametros{
 
 void busca (FILE *bina);
 void exclusao (FILE *bin);
+void insercao(FILE *bin);
+void atualizacao(FILE *bin);
 
 #endif
