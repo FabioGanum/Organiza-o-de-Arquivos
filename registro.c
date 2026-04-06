@@ -1,3 +1,4 @@
+//Feito por: Fabio Ganum Filho - 15450803
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +22,7 @@ void escreverReg(FILE *file, Registro_s regs){
     fwrite(regs.NomeEstacao, regs.tamNomeEstacao, 1, file);      //var
     fwrite(&regs.tamNomeLinha, sizeof(int), 1, file);
     fwrite(regs.NomeLinha, regs.tamNomeLinha, 1, file);        //var
-    for (int i = regs.tamNomeLinha + regs.tamNomeEstacao; i < 44; i++){
+    for (int i = regs.tamNomeLinha + regs.tamNomeEstacao; i < 43; i++){
         fwrite("$", sizeof(char), 1, file);
     }
 }
@@ -168,4 +169,34 @@ void escreverCab (Cabecalho_s cab, FILE *file){
     fwrite(&cab.proxRRN, sizeof(int), 1, file);
     fwrite(&cab.nroEstacoes, sizeof(int), 1, file);
     fwrite(&cab.nroParesEstacoes, sizeof(int), 1, file);
+}
+
+void statusCab (char *nomeArq, int status){     //Funcao para alternar o status do cabecalho
+    FILE *fp = fopen(nomeArq, "rb+");
+    Cabecalho_s cab = lerCab(fp);
+
+    if (status == 0){
+        cab.status = '0';     //inconsistente
+    }else {
+        cab.status = '1';     //consistente
+    }
+    escreverCab (cab, fp);
+    fclose(fp);
+}
+
+Cabecalho_s lerCab (FILE *fp){
+    Cabecalho_s cab;
+    long int posAtual = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    fread(&cab.status, sizeof(char), 1, fp);
+    fread(&cab.topo, sizeof(int), 1, fp);
+    fread(&cab.proxRRN, sizeof(int), 1, fp);
+    fread(&cab.nroEstacoes, sizeof(int), 1, fp);
+    fread(&cab.nroParesEstacoes, sizeof(int), 1, fp);
+    fseek(fp, posAtual, SEEK_SET);
+    return cab;
+}
+
+void exclCab (FILE *fp){
+
 }

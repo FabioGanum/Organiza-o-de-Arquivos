@@ -9,5 +9,6 @@ struct parametros{
 };
 
 void busca (FILE *bina);
+void exclusao (FILE *bin);
 
 #endif

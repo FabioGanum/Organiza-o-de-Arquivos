@@ -3,8 +3,8 @@
 #include <stdio.h>
 
 
-typedef struct registro Registro_s;
-typedef struct cabecalho Cabecalho_s;
+typedef struct registro Registro_s;     //A definicao das structs foi feita no .h para facilitar a interacao entre os arquivos
+typedef struct cabecalho Cabecalho_s;   // e, portanto, a modularizacao do codigo
 
 struct registro {
     char removido;
@@ -39,5 +39,7 @@ Cabecalho_s criarCab ();
 void escreverCab (Cabecalho_s cab, FILE *file);
 void fecharCab (Cabecalho_s *cab);
 void abrirCab (Cabecalho_s *cab);
+void statusCab (char *nomeArq, int status);
+Cabecalho_s lerCab (FILE *fp);
 
 #endif

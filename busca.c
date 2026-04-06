@@ -1,3 +1,4 @@
+//Feito por: Fabio Ganum Filho - 15450803
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,5 +100,56 @@ void busca (FILE *bin){ //isso é UMA busca
     if(printou == 0){
         printf("Registro inexistente.\n");
     }
+    rewind(bin);
+}
+
+
+
+//excluir:
+void exclusao (FILE *bin){
+    int m;
+    scanf(" %d", &m);
+
+    fseek(bin, 17, SEEK_SET);
+
+    Parametros_s *par =  malloc(sizeof(Parametros_s) * m);  //esses sao os M parametros da busca
+
+    for (int i = 0; i < m; i++){
+        scanf("%s", par[i].nome);
+        if (strcmp(par[i].nome, "nomeLinha") == 0 || strcmp(par[i].nome, "nomeEstacao") == 0){
+            ScanQuoteString(par[i].valor);
+        }else{
+            scanf(" %s", par[i].valor);
+        }
+    }
+
+    Registro_s reg;
+    int rrnAtual = 0;
+    while(fread(&reg.removido, sizeof(char), 1, bin) == 1){
+        lerReg(bin, &reg);
+        
+        if (reg.removido == '0' && comparacoes(bin, reg, par, m - 1) == 0){   //verifica se foi removido e se existe
+            long int posAtual = ftell(bin);
+            
+            reg.removido = '1';
+            fseek(bin, 17 + 80 * rrnAtual, SEEK_SET);
+            fwrite(&reg.removido, sizeof(char), 1, bin);
+            Cabecalho_s cab = lerCab(bin);
+            cab.nroEstacoes--;
+            if (reg.CodProxEst != -1) { 
+                cab.nroParesEstacoes--; 
+            }
+            reg.proximo = cab.topo;
+            fwrite(&reg.proximo, sizeof(int), 1, bin);
+            cab.topo = rrnAtual;
+            
+            escreverCab(cab, bin);
+            free(reg.NomeEstacao);
+            free(reg.NomeLinha);
+            fseek(bin, posAtual, SEEK_SET);
+        }
+        rrnAtual++;
+    }
+    
     rewind(bin);
 }

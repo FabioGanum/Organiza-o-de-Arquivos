@@ -1,3 +1,5 @@
+//Feito por: Fabio Ganum Filho - 15450803
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +10,7 @@
 
 int main (){
 
-    int numFunc;
+    int numFunc, n;
     
     if (scanf("%d", &numFunc) != 0) {
 
@@ -51,28 +53,36 @@ int main (){
         case 3:
             char *nomeArquivoss = calloc(20, sizeof(char));
             scanf(" %s", nomeArquivoss);
+            statusCab(nomeArquivoss, 0);
             FILE *binar = fopen(nomeArquivoss, "rb");
-            int n = 0;
+            n = 0;
             scanf(" %d", &n);
             for (int i = 0; i < n; i++){
                 busca(binar);
                 printf("\n");
             }
             fclose(binar);
+            statusCab(nomeArquivoss, 1);
             free(nomeArquivoss);
             break;
         
         case 4:
             char *nomeArq = calloc(20, sizeof(char));
             scanf(" %s", nomeArq);
-            FILE *b = fopen(nomeArq, "wb");
-            int n = 0;
+            statusCab(nomeArq, 0);
+            FILE *b = fopen(nomeArq, "rb+");
+            if (b == NULL) {
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
+            }
+            n = 0;
             scanf(" %d", &n);
             for (int i = 0; i < n; i++){
-
+                exclusao(b);
             }
 
             fclose(b);
+            statusCab(nomeArq, 1);
             BinarioNaTela(nomeArq);
             free(nomeArq);
             break;
