@@ -33,6 +33,9 @@ struct cabecalho {
 //registro
 Registro_s* lerArquivo (FILE* file, Cabecalho_s cab);
 void transcrever (FILE *base, FILE *bin, Cabecalho_s *cab);
+void escreverReg(FILE *file, Registro_s regs);
+void liberarReg(Registro_s *reg);
+void recalcularCabecalho(FILE *bin);
 
 //cabecalho
 Cabecalho_s criarCab ();
