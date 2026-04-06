@@ -26,7 +26,16 @@ void escreverReg(FILE *file, Registro_s regs){
         fwrite("$", sizeof(char), 1, file);
     }
 }
-
+void liberarReg(Registro_s *reg) {
+    if (reg->NomeEstacao != NULL) {
+        free(reg->NomeEstacao);
+        reg->NomeEstacao = NULL;
+    }
+    if (reg->NomeLinha != NULL) {
+        free(reg->NomeLinha);
+        reg->NomeLinha = NULL;
+    }
+}
 void lerLinha(char *linha, struct registro *reg) {  //parsing da string. Tentei ser o mais compacto possivel
     char *ptr = linha;
     char *proxima_virgula;
@@ -195,6 +204,50 @@ Cabecalho_s lerCab (FILE *fp){
     fread(&cab.nroParesEstacoes, sizeof(int), 1, fp);
     fseek(fp, posAtual, SEEK_SET);
     return cab;
+}
+void recalcularCabecalho(FILE *bin) {
+    Cabecalho_s cab = lerCab(bin);
+    int capacidade = (cab.proxRRN > 0) ? cab.proxRRN : 1;
+
+    char **estacoes = (char **) malloc(capacidade * sizeof(char *));
+    int *codEst = (int *) malloc(capacidade * sizeof(int));
+    int *codProx = (int *) malloc(capacidade * sizeof(int));
+    int qtdEstacoes = 0;
+    int qtdPares = 0;
+
+    fseek(bin, 17, SEEK_SET);
+
+    Registro_s reg;
+    while (fread(&reg.removido, sizeof(char), 1, bin) == 1) {
+        lerReg(bin, &reg);
+
+        if (reg.removido == '0') {
+            if (!nomeJaExiste(estacoes, qtdEstacoes, reg.NomeEstacao)) {
+                estacoes[qtdEstacoes] = strdup(reg.NomeEstacao);
+                qtdEstacoes++;
+            }
+
+            if (reg.CodProxEst != -1 && !parJaExiste(codEst, codProx, qtdPares, reg.CodEstacao, reg.CodProxEst)) {
+                codEst[qtdPares] = reg.CodEstacao;
+                codProx[qtdPares] = reg.CodProxEst;
+                qtdPares++;
+            }
+        }
+
+        liberarReg(&reg);
+    }
+
+    cab.nroEstacoes = qtdEstacoes;
+    cab.nroParesEstacoes = qtdPares;
+    escreverCab(cab, bin);
+
+    for (int i = 0; i < qtdEstacoes; i++) {
+        free(estacoes[i]);
+    }
+    free(estacoes);
+    free(codEst);
+    free(codProx);
+    rewind(bin);
 }
 
 void exclCab (FILE *fp){
