@@ -89,40 +89,53 @@ int main (){
             break;
         
          case 5: {
+            // aloca memória para armazenar o nome do arquivo
             char *nomeArquivo = (char *) calloc(50, sizeof(char));
             scanf(" %49s", nomeArquivo);
+            // abre o arquivo em modo leitura + escrita binária
             FILE *bin = fopen(nomeArquivo, "rb+");
+             // tratamento de erro
             if (bin == NULL) {
                 printf("Falha no processamento do arquivo.\n");
                 free(nomeArquivo);
                 return 0;
             }
-
+            //marca o status do arquivo como incosistente para realizar as mudanças
             statusCab(nomeArquivo, 0);
+             //chama a função inserção
             insercao(bin);
+             //volta o status do arquivo para consistente 
             statusCab(nomeArquivo, 1);
 
             fclose(bin);
+             //imprime o resultato
             BinarioNaTela(nomeArquivo);
             free(nomeArquivo);
             break;
         }
 
         case 6: {
+            // aloca memória para armazenar o nome do arquivo
             char *nomeArquivo = (char *) calloc(50, sizeof(char));
             scanf(" %49s", nomeArquivo);
+            // abre o arquivo em modo leitura + escrita binária
             FILE *bin = fopen(nomeArquivo, "rb+");
+            //tratamento de erro
             if (bin == NULL) {
                 printf("Falha no processamento do arquivo.\n");
                 free(nomeArquivo);
                 return 0;
             }
 
+             //marca o status do arquivo como incosistente para realizar as mudanças
             statusCab(nomeArquivo, 0);
+             //chama a função atualização
             atualizacao(bin);
+             //volta o status do arquivo para consistente 
             statusCab(nomeArquivo, 1);
 
             fclose(bin);
+             //imprime o resultato
             BinarioNaTela(nomeArquivo);
             free(nomeArquivo);
             break;
