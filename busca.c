@@ -158,19 +158,23 @@ void insercao(FILE *bin) {
     int n;
     scanf(" %d", &n);
 
-    Cabecalho_s cab = lerCab(bin);
+    Cabecalho_s cab = lerCab(bin); //le o cabeçalho do arquivo
 
     for (int i = 0; i < n; i++) {
         Registro_s reg;
-        lerRegistroInsercao(&reg);
-
+        lerRegistroInsercao(&reg); //le os dados do novo registro
+        // Se cab.topo != -1, existe um registro deletado que pode ser reaproveitado
         if (cab.topo != -1) {
-            int rrnInsercao = cab.topo;
+            int rrnInsercao = cab.topo; // Salva o RRN
+            // Vai até o registro deletado para ler qual é o proximo da lista de removidos
+            // 17 (tamanho do cabeçalho) + rrn * 80 (tamanho do registro) + 1 (pula o byte de 'removido')
             fseek(bin, 17 + rrnInsercao * 80 + 1, SEEK_SET);
-            fread(&cab.topo, sizeof(int), 1, bin);
+            fread(&cab.topo, sizeof(int), 1, bin);//atualiza o topo do cabeçalho
+            //volta para o inicio registrador para sobreescrever mais dados
             fseek(bin, 17 + rrnInsercao * 80, SEEK_SET);
             escreverReg(bin, reg);
         } else {
+            // Se não há removidos, insere no final do arquivo usando proxRRN
             fseek(bin, 17 + cab.proxRRN * 80, SEEK_SET);
             escreverReg(bin, reg);
             cab.proxRRN++;
@@ -180,7 +184,7 @@ void insercao(FILE *bin) {
     }
 
     escreverCab(cab, bin);
-    recalcularCabecalho(bin);
+    recalcularCabecalho(bin); 
 }
 
 void atualizacao(FILE *bin) {
@@ -190,29 +194,31 @@ void atualizacao(FILE *bin) {
     for (int i = 0; i < n; i++) {
         int m, p;
         scanf(" %d", &m);
+        // ve os parametros de busca
         Parametros_s *buscaPar = (Parametros_s *) malloc((size_t) m * sizeof(Parametros_s));
         lerParametros(buscaPar, m);
-
+        //le os dados novos para atualizar
         scanf(" %d", &p);
         Parametros_s *atualizaPar = (Parametros_s *) malloc((size_t) p * sizeof(Parametros_s));
         lerParametros(atualizaPar, p);
-
+        //volta para o ponteiro para o inicio dos registros
         fseek(bin, 17, SEEK_SET);
 
         Registro_s reg;
+        // le o byte removido de cada registro ate o fim do arquivo
         while (fread(&reg.removido, sizeof(char), 1, bin) == 1) {
-            long int posInicio = ftell(bin) - 1;
-            lerReg(bin, &reg);
-
+            long int posInicio = ftell(bin) - 1;// Salva a posição exata do início deste registro
+            lerReg(bin, &reg); // Lê o restante dos campos do registro
+            //verifica se ele não é removido e se atende os criterios de busca
             if (reg.removido == '0' && comparacoes(bin, reg, buscaPar, m - 1) == 0) {
                 aplicarAtualizacoes(&reg, atualizaPar, p);
-                reg.removido = '0';
-                reg.proximo = -1;
-                fseek(bin, posInicio, SEEK_SET);
+                reg.removido = '0'; //garante que continua como removido
+                reg.proximo = -1; //garante o encadeamento de lista ligada
+                fseek(bin, posInicio, SEEK_SET); //volta o ponteiro para o inicio do registro no arquivo
                 escreverReg(bin, reg);
             }
 
-            liberarReg(&reg);
+            liberarReg(&reg); //libera os campos
         }
 
         free(buscaPar);
