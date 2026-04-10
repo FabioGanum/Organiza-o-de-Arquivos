@@ -33,9 +33,9 @@ struct cabecalho {
 //registro
 Registro_s* lerArquivo (FILE* file, Cabecalho_s cab);
 void transcrever (FILE *base, FILE *bin, Cabecalho_s *cab);
-void escreverReg(FILE *file, Registro_s regs);
-void liberarReg(Registro_s *reg);
-void recalcularCabecalho(FILE *bin);
+void escreverReg(FILE *file, Registro_s regs); //escreve um registro no arquivo binário
+void liberarReg(Registro_s *reg); // libera memoria dinamica de um registro
+void recalcularCabecalho(FILE *bin); // recalcular cabeçalho
 
 //cabecalho
 Cabecalho_s criarCab ();
