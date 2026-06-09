@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "./Estacao/estacao.h"
+#include "./Cabecalho/cabecalho.h"
+#include "./Fornecidas/fornecidas.h"
 
 /*#include "registro.h"
 #include "traducao.h"
@@ -425,16 +428,16 @@ void execFuncionalidade7(char *nomeDados, char *nomeIndice) {
     escreverCabecalhoIndice(binIndice, cabI);
 
     fseek(binDados, 17, SEEK_SET);
-    Registro_s reg;
 
-    while (fread(&reg.removido, sizeof(char), 1, binDados) == 1) {
-        int byteOffset = (int)(ftell(binDados) - 1);
-        lerReg(binDados, &reg);
+    ESTACAO *estacao = estacao_criar();
 
-        if (reg.removido == '0') {
-            inserirChaveBTree(binIndice, reg.CodEstacao, byteOffset);
+    while (estacao_ler_bin(estacao, binDados) == 1) {
+        int byteOffset = (int)(ftell(binDados) - 80);
+
+        if (!estacao_removido(estacao)) {
+            inserirChaveBTree(binIndice, codEst(estacao), byteOffset);
         }
-        liberarReg(&reg);
+        estacao_esvaziar(estacao);
     }
 
     cabI = lerCabecalhoIndice(binIndice);
@@ -445,7 +448,7 @@ void execFuncionalidade7(char *nomeDados, char *nomeIndice) {
     fclose(binIndice);
     BinarioNaTela(nomeIndice);
 }
-
+/*
 void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
     FILE *binDados  = fopen(nomeDados,  "rb");
     FILE *binIndice = fopen(nomeIndice, "rb");
@@ -471,16 +474,16 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
         int m;
         scanf("%d", &m);
 
-        /* Armazena os pares campo/valor lidos para esta busca */
+        // Armazena os pares campo/valor lidos para esta busca
         char campos[10][35];
-        char valores[10][120];   /* para campos string (sem aspas) */
-        int  valoresInt[10];     /* para campos inteiros             */
-        int  ehInt[10];          /* 1 se o campo é numérico          */
+        char valores[10][120];   // para campos string (sem aspas)
+        int  valoresInt[10];     // para campos inteiros
+        int  ehInt[10];          // 1 se o campo é numérico
 
         for (int j = 0; j < m; j++) {
             scanf(" %34s", campos[j]);
 
-            /* Campos numéricos conhecidos */
+            // Campos numéricos conhecidos
             if (strcmp(campos[j], "codEstacao")      == 0 ||
                 strcmp(campos[j], "codLinha")        == 0 ||
                 strcmp(campos[j], "codProxEstacao")  == 0 ||
@@ -490,13 +493,13 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
                 scanf("%d", &valoresInt[j]);
                 ehInt[j] = 1;
             } else {
-                /* nomeEstacao ou nomeLinha: vem entre aspas duplas */
+                // nomeEstacao ou nomeLinha: vem entre aspas duplas
                 ScanQuoteString(valores[j]);
                 ehInt[j] = 0;
             }
         }
 
-        /* Verifica se algum campo de busca é codEstacao → usa índice */
+        // Verifica se algum campo de busca é codEstacao → usa índice
         int usarIndice  = 0;
         int chaveIndice = -1;
         for (int j = 0; j < m; j++) {
@@ -508,17 +511,17 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
         }
 
         if (usarIndice) {
-            /* ----------------------------------------------------------------
-             * Busca indexada via Árvore-B
-             *
-             * buscaBTree devolve o byte-offset gravado como PR na folha, que
-             * é exatamente o offset do byte 'removido' do registro no arquivo
-             * de dados (gravado assim na funcionalidade 7).
-             * ---------------------------------------------------------------- */
+            // ----------------------------------------------------------------
+            // Busca indexada via Árvore-B
+            //
+            // buscaBTree devolve o byte-offset gravado como PR na folha, que
+            // é exatamente o offset do byte 'removido' do registro no arquivo
+            // de dados (gravado assim na funcionalidade 7).
+            // ----------------------------------------------------------------
             int byteOffset = buscaBTree(binIndice, cabI.noRaiz, chaveIndice);
 
             if (byteOffset == -1) {
-                /* chave não está na árvore */
+                // chave não está na árvore
                 printf("Registro inexistente.\n");
                 continue;
             }
@@ -527,17 +530,17 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
             Registro_s reg;
             fread(&reg.removido, sizeof(char), 1, binDados);
 
-            /* [CONV] No trabalho introdutório: '0' = ativo, '1' = removido.
-             * Se a sua convenção for inversa, troque '1' por '0' abaixo.    */
+            // [CONV] No trabalho introdutório: '0' = ativo, '1' = removido.
+            // Se a sua convenção for inversa, troque '1' por '0' abaixo.
             if (reg.removido == '1') {
-                /* Registro foi removido logicamente após ser indexado */
+                // Registro foi removido logicamente após ser indexado
                 printf("Registro inexistente.\n");
                 continue;
             }
 
             lerReg(binDados, &reg);
 
-            /* Verifica os demais critérios da busca (além de codEstacao) */
+            // Verifica os demais critérios da busca (além de codEstacao)
             int match = 1;
             for (int j = 0; j < m && match; j++) {
                 if (strcmp(campos[j], "codEstacao") == 0) {
@@ -565,14 +568,14 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
                 printf("Registro inexistente.\n");
             } else {
                 printarReg(binDados, reg);
-                printf("\n"); /* quebra de linha entre registros */
+                printf("\n"); // quebra de linha entre registros
             }
             liberarReg(&reg);
 
         } else {
-            /* ----------------------------------------------------------------
-             * Varredura sequencial (campo de busca não é codEstacao)
-             * ---------------------------------------------------------------- */
+            // ----------------------------------------------------------------
+            // Varredura sequencial (campo de busca não é codEstacao)
+            // ----------------------------------------------------------------
             int encontrou = 0;
             fseek(binDados, 17, SEEK_SET);
 
@@ -581,13 +584,13 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
                 if (fread(&reg.removido, sizeof(char), 1, binDados) != 1) break;
                 lerReg(binDados, &reg);
 
-                /* [CONV] '1' = removido logicamente → pula */
+                // [CONV] '1' = removido logicamente → pula
                 if (reg.removido == '1') {
                     liberarReg(&reg);
                     continue;
                 }
 
-                /* Verifica todos os critérios da busca */
+                // Verifica todos os critérios da busca
                 int match = 1;
                 for (int j = 0; j < m && match; j++) {
                     if (strcmp(campos[j], "codEstacao") == 0) {
@@ -613,7 +616,7 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
 
                 if (match) {
                     printarReg(binDados, reg);
-                    printf("\n"); /* quebra de linha entre registros */
+                    printf("\n"); // quebra de linha entre registros
                     encontrou = 1;
                 }
                 liberarReg(&reg);
@@ -628,7 +631,8 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
     fclose(binDados);
     fclose(binIndice);
 }
-
+*/
+/*
 void execFuncionalidade9(char *nomeDados, char *nomeIndice, int totalInsercoes) {
     FILE *binDados  = fopen(nomeDados,  "rb+");
     FILE *binIndice = fopen(nomeIndice, "rb+");
@@ -685,7 +689,8 @@ void execFuncionalidade9(char *nomeDados, char *nomeIndice, int totalInsercoes) 
     BinarioNaTela(nomeDados);
     BinarioNaTela(nomeIndice);
 }
-
+*/
+/*
 void execFuncionalidade10(char *nomeDados, char *nomeIndice, int totalAtualizacoes) {
     FILE *binDados  = fopen(nomeDados,  "rb+");
     FILE *binIndice = fopen(nomeIndice, "rb+");
@@ -710,7 +715,7 @@ void execFuncionalidade10(char *nomeDados, char *nomeIndice, int totalAtualizaco
             int valorChave;
             scanf("%d", &valorChave);
 
-            /* re-lê o cabeçalho para ter o noRaiz atualizado */
+            // re-lê o cabeçalho para ter o noRaiz atualizado
             cabI = lerCabecalhoIndice(binIndice);
             int byteOffset = buscaBTree(binIndice, cabI.noRaiz, valorChave);
             if (byteOffset != -1) {
@@ -719,12 +724,12 @@ void execFuncionalidade10(char *nomeDados, char *nomeIndice, int totalAtualizaco
                 fread(&reg.removido, sizeof(char), 1, binDados);
                 if (reg.removido == '0') {
                     lerReg(binDados, &reg);
-                    /* lógica de atualização da Parte 1 aqui */
+                    // lógica de atualização da Parte 1 aqui
                     liberarReg(&reg);
                 }
             }
         } else {
-            /* varredura sequencial para outros campos (Funcionalidade 6) */
+            // varredura sequencial para outros campos (Funcionalidade 6)
         }
     }
 
@@ -739,3 +744,4 @@ void execFuncionalidade10(char *nomeDados, char *nomeIndice, int totalAtualizaco
     BinarioNaTela(nomeDados);
     BinarioNaTela(nomeIndice);
 }
+*/
