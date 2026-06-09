@@ -9,13 +9,36 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "registro.h"
+/*#include "registro.h"
 #include "traducao.h"
-#include "busca.h"
+#include "busca.h"*/
 
 #define ORDEM 4
 #define MAX_CHAVES 4
 #define MAX_FILHOS 5
+
+typedef struct cabecalho {
+    char status;
+    int topo;
+    int proxRRN;
+    int nroEstacoes;
+    int nroParesEstacoes;
+}Cabecalho_s;
+
+typedef struct registro {
+    char removido;
+    int proximo;
+    int CodEstacao;
+    int CodLinha;
+    int CodProxEst;
+    int distProxEstacao;
+    int codLinhaIntegra;
+    int codEstIntegra;
+    int tamNomeEstacao;
+    char *NomeEstacao;
+    int tamNomeLinha;
+    char *NomeLinha;
+}Registro_s;
 
 typedef struct {
     char status;
@@ -34,6 +57,21 @@ typedef struct NOAB {
     int pr[MAX_CHAVES];
     int filhos[MAX_FILHOS];
 } TNoAB;
+
+Cabecalho_s lerCab(FILE *fp) {
+    Cabecalho_s cab;
+    long int posAtual = ftell(fp); // Salva onde estávamos lendo
+    
+    fseek(fp, 0, SEEK_SET); // Pula para o começo para ler o cabeçalho
+    fread(&cab.status, sizeof(char), 1, fp);
+    fread(&cab.topo, sizeof(int), 1, fp);
+    fread(&cab.proxRRN, sizeof(int), 1, fp);
+    fread(&cab.nroEstacoes, sizeof(int), 1, fp);
+    fread(&cab.nroParesEstacoes, sizeof(int), 1, fp);
+    
+    fseek(fp, posAtual, SEEK_SET); // Restaura a posição original
+    return cab;
+}
 
 TNoAB *criarNoAB() {
     TNoAB *no = (TNoAB *) malloc(sizeof(TNoAB));
