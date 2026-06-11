@@ -6,6 +6,7 @@
 int main(void) {
     int selector, n; // selector = funcionalidade, n = número de consultas
     char arq[30], arqIn[30], arqOut[30]; // nomes de arquivos (entrada/saída)
+    char nomeDados[50], nomeIndice[50];
 
     scanf("%d", &selector);
 
@@ -41,9 +42,13 @@ int main(void) {
             break;
 
         case 7:
-            char nomeDados[50], nomeIndice[50];
             scanf(" %49s %49s", nomeDados, nomeIndice);
             execFuncionalidade7(nomeDados, nomeIndice);
+            break;
+
+        case 8:
+            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            execFuncionalidade8(nomeDados, nomeIndice, n);
             break;
 
         default:
