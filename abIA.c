@@ -448,11 +448,12 @@ void execFuncionalidade7(char *nomeDados, char *nomeIndice) {
     fclose(binIndice);
     BinarioNaTela(nomeIndice);
 }
-/*
+
 void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
+    int m;
+
     FILE *binDados  = fopen(nomeDados,  "rb");
     FILE *binIndice = fopen(nomeIndice, "rb");
-
     if (!binDados || !binIndice) {
         printf("Falha no processamento do arquivo.\n");
         if (binDados)  fclose(binDados);
@@ -460,9 +461,8 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
         return;
     }
 
-    Cabecalho_s     cabD = lerCab(binDados);
+    Cabecalho_s cabD = lerCab(binDados);
     CabecalhoIndice cabI = lerCabecalhoIndice(binIndice);
-
     if (cabD.status == '0' || cabI.status == '0') {
         printf("Falha no processamento do arquivo.\n");
         fclose(binDados);
@@ -471,41 +471,31 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
     }
 
     for (int b = 0; b < nBuscas; b++) {
-        int m;
         scanf("%d", &m);
 
-        // Armazena os pares campo/valor lidos para esta busca
-        char campos[10][35];
-        char valores[10][120];   // para campos string (sem aspas)
-        int  valoresInt[10];     // para campos inteiros
-        int  ehInt[10];          // 1 se o campo é numérico
+        // Cria array de m nomes de campos e m valores de campos
+        char campos[m][20];
+        char valor[m][45];
 
-        for (int j = 0; j < m; j++) {
-            scanf(" %34s", campos[j]);
+        // Executa o código m vezes
+        for(int j = 0; j < m; j++) {
+            scanf("%s", campos[j]); // Lê o nome do campo
 
-            // Campos numéricos conhecidos
-            if (strcmp(campos[j], "codEstacao")      == 0 ||
-                strcmp(campos[j], "codLinha")        == 0 ||
-                strcmp(campos[j], "codProxEstacao")  == 0 ||
-                strcmp(campos[j], "distProxEstacao") == 0 ||
-                strcmp(campos[j], "codLinhaIntegra") == 0 ||
-                strcmp(campos[j], "codEstIntegra")   == 0) {
-                scanf("%d", &valoresInt[j]);
-                ehInt[j] = 1;
+            // Se o campo for nomeEstacao ou nomeLinha, o valor lido terá ""
+            if(strcmp(campos[j], "nomeEstacao") == 0 || strcmp(campos[j], "nomeLinha") == 0) {
+                ScanQuoteString(valor[j]);
             } else {
-                // nomeEstacao ou nomeLinha: vem entre aspas duplas
-                ScanQuoteString(valores[j]);
-                ehInt[j] = 0;
+                scanf("%s", valor[j]);
             }
         }
 
         // Verifica se algum campo de busca é codEstacao → usa índice
-        int usarIndice  = 0;
-        int chaveIndice = -1;
+        bool usarIndice  = false;
+        int localChave = -1;
         for (int j = 0; j < m; j++) {
-            if (strcmp(campos[j], "codEstacao") == 0 && ehInt[j]) {
-                usarIndice  = 1;
-                chaveIndice = valoresInt[j];
+            if (strcmp(campos[j], "codEstacao") == 0) {
+                usarIndice = true;
+                localChave = j;
                 break;
             }
         }
@@ -518,120 +508,81 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
             // é exatamente o offset do byte 'removido' do registro no arquivo
             // de dados (gravado assim na funcionalidade 7).
             // ----------------------------------------------------------------
-            int byteOffset = buscaBTree(binIndice, cabI.noRaiz, chaveIndice);
+            int byteOffset = buscaBTree(binIndice, cabI.noRaiz, atoi(valor[localChave]));
 
             if (byteOffset == -1) {
                 // chave não está na árvore
-                printf("Registro inexistente.\n");
+                printf("Registro inexistente.\n\n");
                 continue;
             }
 
             fseek(binDados, byteOffset, SEEK_SET);
-            Registro_s reg;
-            fread(&reg.removido, sizeof(char), 1, binDados);
+            ESTACAO *estacao = estacao_criar(); // Cria struct estacao
+            estacao_ler_bin(estacao, binDados);
 
             // [CONV] No trabalho introdutório: '0' = ativo, '1' = removido.
             // Se a sua convenção for inversa, troque '1' por '0' abaixo.
-            if (reg.removido == '1') {
+            if (estacao_removido(estacao)) {
                 // Registro foi removido logicamente após ser indexado
-                printf("Registro inexistente.\n");
+                printf("Registro inexistente.\n\n");
                 continue;
             }
 
-            lerReg(binDados, &reg);
+            bool check = true;
 
-            // Verifica os demais critérios da busca (além de codEstacao)
-            int match = 1;
-            for (int j = 0; j < m && match; j++) {
-                if (strcmp(campos[j], "codEstacao") == 0) {
-                    if (reg.CodEstacao != valoresInt[j])        match = 0;
-                } else if (strcmp(campos[j], "codLinha") == 0) {
-                    if (reg.CodLinha != valoresInt[j])          match = 0;
-                } else if (strcmp(campos[j], "codProxEstacao") == 0) {
-                    if (reg.CodProxEst != valoresInt[j])        match = 0;
-                } else if (strcmp(campos[j], "distProxEstacao") == 0) {
-                    if (reg.distProxEstacao != valoresInt[j])   match = 0;
-                } else if (strcmp(campos[j], "codLinhaIntegra") == 0) {
-                    if (reg.codLinhaIntegra != valoresInt[j])   match = 0;
-                } else if (strcmp(campos[j], "codEstIntegra") == 0) {
-                    if (reg.codEstIntegra != valoresInt[j])     match = 0;
-                } else if (strcmp(campos[j], "nomeEstacao") == 0) {
-                    if (reg.NomeEstacao == NULL ||
-                        strcmp(reg.NomeEstacao, valores[j]) != 0) match = 0;
-                } else if (strcmp(campos[j], "nomeLinha") == 0) {
-                    if (reg.NomeLinha == NULL ||
-                        strcmp(reg.NomeLinha, valores[j]) != 0)   match = 0;
-                }
+            // Verifica se a estação possui valores equivalentes aos dados
+            for(int j = 0; j < m; j++) {
+                if(!estacao_possui(estacao, campos[j], valor[j])) check = false;
             }
 
-            if (!match) {
-                printf("Registro inexistente.\n");
+            if(check) {
+                estacao_print(estacao);
             } else {
-                printarReg(binDados, reg);
-                printf("\n"); // quebra de linha entre registros
-            }
-            liberarReg(&reg);
-
-        } else {
-            // ----------------------------------------------------------------
-            // Varredura sequencial (campo de busca não é codEstacao)
-            // ----------------------------------------------------------------
-            int encontrou = 0;
-            fseek(binDados, 17, SEEK_SET);
-
-            while (1) {
-                Registro_s reg;
-                if (fread(&reg.removido, sizeof(char), 1, binDados) != 1) break;
-                lerReg(binDados, &reg);
-
-                // [CONV] '1' = removido logicamente → pula
-                if (reg.removido == '1') {
-                    liberarReg(&reg);
-                    continue;
-                }
-
-                // Verifica todos os critérios da busca
-                int match = 1;
-                for (int j = 0; j < m && match; j++) {
-                    if (strcmp(campos[j], "codEstacao") == 0) {
-                        if (reg.CodEstacao != valoresInt[j])        match = 0;
-                    } else if (strcmp(campos[j], "codLinha") == 0) {
-                        if (reg.CodLinha != valoresInt[j])          match = 0;
-                    } else if (strcmp(campos[j], "codProxEstacao") == 0) {
-                        if (reg.CodProxEst != valoresInt[j])        match = 0;
-                    } else if (strcmp(campos[j], "distProxEstacao") == 0) {
-                        if (reg.distProxEstacao != valoresInt[j])   match = 0;
-                    } else if (strcmp(campos[j], "codLinhaIntegra") == 0) {
-                        if (reg.codLinhaIntegra != valoresInt[j])   match = 0;
-                    } else if (strcmp(campos[j], "codEstIntegra") == 0) {
-                        if (reg.codEstIntegra != valoresInt[j])     match = 0;
-                    } else if (strcmp(campos[j], "nomeEstacao") == 0) {
-                        if (reg.NomeEstacao == NULL ||
-                            strcmp(reg.NomeEstacao, valores[j]) != 0) match = 0;
-                    } else if (strcmp(campos[j], "nomeLinha") == 0) {
-                        if (reg.NomeLinha == NULL ||
-                            strcmp(reg.NomeLinha, valores[j]) != 0)   match = 0;
-                    }
-                }
-
-                if (match) {
-                    printarReg(binDados, reg);
-                    printf("\n"); // quebra de linha entre registros
-                    encontrou = 1;
-                }
-                liberarReg(&reg);
-            }
-
-            if (!encontrou) {
                 printf("Registro inexistente.\n");
             }
+            printf("\n");
+
+            estacao_apagar(&estacao);
+        } else {
+            fseek(binDados, 17, SEEK_SET); // Pula para o início do arquivo depois do cabeçalho
+
+            bool exists = false;
+
+            ESTACAO *estacao = estacao_criar(); // Cria struct estacao
+
+            // Lê estações no arquivo até acabar
+            while(estacao_ler_bin(estacao, binDados) == 1) {
+                bool check = true;
+
+                // Verifica se a estação possui valores equivalentes aos dados
+                for(int j = 0; j < m; j++) {
+                    if(!estacao_possui(estacao, campos[j], valor[j])) check = false;
+                }
+
+                // Se possuí, imprime a estação no terminal e marca que alguma estação com esses valores existe
+                if(check) {
+                    estacao_print(estacao);
+                    exists = true;
+                }
+
+                estacao_esvaziar(estacao); // Esvazia estação preparando pra próxima leitura
+            }
+
+            // Caso não exista, imprime mensagem no terminal
+            if(!exists) {
+                printf("Registro inexistente.\n");
+            }
+            printf("\n");
+            
+            // Apaga struct estacao
+            estacao_apagar(&estacao);
         }
     }
 
     fclose(binDados);
     fclose(binIndice);
 }
-*/
+
 /*
 void execFuncionalidade9(char *nomeDados, char *nomeIndice, int totalInsercoes) {
     FILE *binDados  = fopen(nomeDados,  "rb+");
