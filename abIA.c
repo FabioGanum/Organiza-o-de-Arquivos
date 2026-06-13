@@ -187,6 +187,14 @@ int buscaBTree(FILE *binIndice, int rrnAtual, int alvo) {
 }
 
 /* -----------------------------------------------------------------------
+ * Busca na Árvore-B e apaga caso encontrar
+ * Retorna o byte-offset (PR) se encontrado, -1 caso contrário.
+ * ----------------------------------------------------------------------- */
+int buscaApagaBTree(FILE *binIndice, int rrnAtual, int alvo) {
+
+}
+
+/* -----------------------------------------------------------------------
  * insOrd: insere (Nchave, Npr) no nó em memória de forma ordenada.
  * rrnFilhoDireito é o RRN do novo filho criado à direita da chave inserida
  * (para splits em cascata); em folhas, passa-se -1.
@@ -583,11 +591,13 @@ void execFuncionalidade8(char *nomeDados, char *nomeIndice, int nBuscas) {
     fclose(binIndice);
 }
 
-/*
+
 void execFuncionalidade9(char *nomeDados, char *nomeIndice, int totalInsercoes) {
+    // Cria struct da estação
+    ESTACAO *estacao = estacao_criar();
+
     FILE *binDados  = fopen(nomeDados,  "rb+");
     FILE *binIndice = fopen(nomeIndice, "rb+");
-
     if (!binDados || !binIndice) {
         printf("Falha no processamento do arquivo.\n");
         if (binDados)  fclose(binDados);
@@ -595,54 +605,73 @@ void execFuncionalidade9(char *nomeDados, char *nomeIndice, int totalInsercoes) 
         return;
     }
 
-    statusCab(nomeDados, 0);
+    char buff = '0';
+    int localDados;
+
+    // Marca o status do cabeçalho como inconsistente e lê o cabeçalho: topo
+    fwrite(&buff, 1, 1, binDados);
+    fread(&localDados, 4, 1, binDados);
+
     CabecalhoIndice cabI = lerCabecalhoIndice(binIndice);
     cabI.status = '0';
     escreverCabecalhoIndice(binIndice, cabI);
 
     for (int i = 0; i < totalInsercoes; i++) {
-        fseek(binDados, 0, SEEK_END);
-        int novoPR = (int)ftell(binDados);
+        int novoPR ;
 
-        Registro_s reg;
-        reg.removido = '0';
-        reg.proximo  = -1;
+        // Lê os dados da nova estação do stdin
+        estacao_ler_stdin(estacao);
 
-        char lixo_aspas[100];
-        scanf("%d", &reg.CodEstacao);
-        ScanQuoteString(lixo_aspas);
-        reg.NomeEstacao    = strdup(lixo_aspas);
-        reg.tamNomeEstacao = (int)strlen(lixo_aspas);
-        scanf("%d", &reg.CodLinha);
-        ScanQuoteString(lixo_aspas);
-        reg.NomeLinha    = strdup(lixo_aspas);
-        reg.tamNomeLinha = (int)strlen(lixo_aspas);
-        scanf("%d", &reg.CodProxEst);
-        scanf("%d", &reg.distProxEstacao);
-        scanf("%d", &reg.codLinhaIntegra);
-        scanf("%d", &reg.codEstIntegra);
 
-        escreverReg(binDados, reg);
-        inserirChaveBTree(binIndice, reg.CodEstacao, novoPR);
-        liberarReg(&reg);
+        if (buscaBTree(binIndice, cabI.noRaiz, codEst(estacao)) != -1) {
+                // chave está na árvore
+                continue;
+        }
+
+        if(localDados != -1) {
+            novoPR = 17 + 80*localDados;
+            // Há registros removidos na lista livre: reutiliza a posição
+            fseek(binDados, 17 + 80*localDados, SEEK_SET);
+            fread(&buff, 1, 1, binDados); // lê status (deveria ser '1')
+            fread(&localDados, 4, 1, binDados); // lê próximo da lista livre (novo topo)
+            fseek(binDados, -5, SEEK_CUR); // volta para o início do registro (campo removido)
+        } else {
+            // Sem registros livres: insere no final do arquivo
+            fseek(binDados, 0, SEEK_END);
+            novoPR = (int)ftell(binDados);
+        }
+
+        // Escreve a estação no local determinado
+        estacao_escrever_bin(estacao, binDados);
+
+        inserirChaveBTree(binIndice, codEst(estacao), novoPR);
+
+        // Esvazia a struct para o próximo uso
+        estacao_esvaziar(estacao);
     }
 
-    statusCab(nomeDados, 1);
-    recalcularCabecalho(binDados);
+    // Atualiza o topo da pilha de registros logicamente removidos no cabeçalho
+    fseek(binDados, 1, SEEK_SET);
+    fwrite(&localDados, 4, 1, binDados);
+
+    // Volta ao início do arquivo para recalcular e atualizar o cabeçalho completo
+    fseek(binDados, 0, SEEK_SET);
+    cabecalho_atualizar(binDados);
+    fclose(binDados);
 
     cabI = lerCabecalhoIndice(binIndice);
     cabI.status = '1';
     escreverCabecalhoIndice(binIndice, cabI);
-
-    fclose(binDados);
     fclose(binIndice);
 
     BinarioNaTela(nomeDados);
     BinarioNaTela(nomeIndice);
 }
-*/
-/*
+
+
 void execFuncionalidade10(char *nomeDados, char *nomeIndice, int totalAtualizacoes) {
+    int m;
+
     FILE *binDados  = fopen(nomeDados,  "rb+");
     FILE *binIndice = fopen(nomeIndice, "rb+");
 
@@ -653,46 +682,142 @@ void execFuncionalidade10(char *nomeDados, char *nomeIndice, int totalAtualizaco
         return;
     }
 
-    statusCab(nomeDados, 0);
+    char buff = '0';
+    int localDados;
+
+    // Marca o status do cabeçalho como inconsistente e lê o cabeçalho: topo
+    fwrite(&buff, 1, 1, binDados);
+    fread(&localDados, 4, 1, binDados);
+
     CabecalhoIndice cabI = lerCabecalhoIndice(binIndice);
     cabI.status = '0';
     escreverCabecalhoIndice(binIndice, cabI);
 
+    buff = '1';
+
     for (int k = 0; k < totalAtualizacoes; k++) {
-        char campoBusca[35];
-        scanf(" %34s", campoBusca);
+        scanf("%d", &m);
 
-        if (strcmp(campoBusca, "codEstacao") == 0) {
-            int valorChave;
-            scanf("%d", &valorChave);
+        // Cria array de m nomes de campos e m valores de campos
+        char campos[m][20];
+        char valor[m][45];
 
-            // re-lê o cabeçalho para ter o noRaiz atualizado
-            cabI = lerCabecalhoIndice(binIndice);
-            int byteOffset = buscaBTree(binIndice, cabI.noRaiz, valorChave);
-            if (byteOffset != -1) {
-                fseek(binDados, byteOffset, SEEK_SET);
-                Registro_s reg;
-                fread(&reg.removido, sizeof(char), 1, binDados);
-                if (reg.removido == '0') {
-                    lerReg(binDados, &reg);
-                    // lógica de atualização da Parte 1 aqui
-                    liberarReg(&reg);
-                }
+        // Executa o código m vezes
+        for(int j = 0; j < m; j++) {
+            scanf("%s", campos[j]); // Lê o nome do campo
+
+            // Se o campo for nomeEstacao ou nomeLinha, o valor lido terá ""
+            if(strcmp(campos[j], "nomeEstacao") == 0 || strcmp(campos[j], "nomeLinha") == 0) {
+                ScanQuoteString(valor[j]);
+            } else {
+                scanf("%s", valor[j]);
             }
+        }
+
+        // Verifica se algum campo de busca é codEstacao → usa índice
+        bool usarIndice  = false;
+        int localChave = -1;
+        for (int j = 0; j < m; j++) {
+            if (strcmp(campos[j], "codEstacao") == 0) {
+                usarIndice = true;
+                localChave = j;
+                break;
+            }
+        }
+
+        if (usarIndice) {
+            // ----------------------------------------------------------------
+            // Busca indexada via Árvore-B
+            //
+            // buscaBTree devolve o byte-offset gravado como PR na folha, que
+            // é exatamente o offset do byte 'removido' do registro no arquivo
+            // de dados (gravado assim na funcionalidade 7).
+            // ----------------------------------------------------------------
+            int byteOffset = buscaBTree(binIndice, cabI.noRaiz, atoi(valor[localChave]));
+
+            if (byteOffset == -1) {
+                // chave não está na árvore
+                continue;
+            }
+
+            fseek(binDados, byteOffset, SEEK_SET);
+            ESTACAO *estacao = estacao_criar(); // Cria struct estacao
+            estacao_ler_bin(estacao, binDados);
+
+            if (estacao_removido(estacao)) {
+                // Registro foi removido logicamente após ser indexado
+                continue;
+            }
+
+            bool check = true;
+
+            // Verifica se a estação possui valores equivalentes aos dados
+            for(int j = 0; j < m; j++) {
+                if(!estacao_possui(estacao, campos[j], valor[j])) check = false;
+            }
+
+            if(check) {
+                fseek(binDados, -80, SEEK_CUR);
+                fwrite(&buff, 1, 1, binDados);
+                fwrite(&localDados, 4, 1, binDados);
+                localDados = (byteOffset-17)/80;
+            } else {
+                continue;
+            }
+
+            estacao_apagar(&estacao);
         } else {
-            // varredura sequencial para outros campos (Funcionalidade 6)
+            fseek(binDados, 17, SEEK_SET); // Pula para o início do arquivo depois do cabeçalho
+
+            bool exists = false;
+
+            ESTACAO *estacao = estacao_criar(); // Cria struct estacao
+
+            // Lê estações no arquivo até acabar
+            while(estacao_ler_bin(estacao, binDados) == 1) {
+                bool check = true;
+
+                // Verifica se a estação possui valores equivalentes aos dados
+                for(int j = 0; j < m; j++) {
+                    if(!estacao_possui(estacao, campos[j], valor[j])) check = false;
+                }
+
+                if(estacao_removido(estacao)) {
+                    continue;
+                }
+
+                // Se possuí, marca a estação como removida
+                if(check) {
+                    fseek(binDados, -80, SEEK_CUR);
+                    fwrite(&buff, 1, 1, binDados);
+                    fwrite(&localDados, 4, 1, binDados);
+                    int byteOffset = buscaBTree(binIndice, cabI.noRaiz, codEst(estacao));
+                    localDados = (byteOffset-17)/80;
+                    fseek(binDados, 75, SEEK_CUR);
+                }
+
+                estacao_esvaziar(estacao); // Esvazia estação preparando pra próxima leitura
+            }
+
+            // Apaga struct estacao
+            estacao_apagar(&estacao);
         }
     }
 
-    statusCab(nomeDados, 1);
+        // Atualiza o topo da pilha de registros logicamente removidos no cabeçalho
+    fseek(binDados, 1, SEEK_SET);
+    fwrite(&localDados, 4, 1, binDados);
+
+    // Volta ao início do arquivo para recalcular e atualizar o cabeçalho completo
+    fseek(binDados, 0, SEEK_SET);
+    cabecalho_atualizar(binDados);
+    fclose(binDados);
+
     cabI = lerCabecalhoIndice(binIndice);
     cabI.status = '1';
     escreverCabecalhoIndice(binIndice, cabI);
-
-    fclose(binDados);
     fclose(binIndice);
 
     BinarioNaTela(nomeDados);
     BinarioNaTela(nomeIndice);
 }
-*/

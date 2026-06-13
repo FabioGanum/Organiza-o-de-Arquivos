@@ -51,6 +51,16 @@ int main(void) {
             execFuncionalidade8(nomeDados, nomeIndice, n);
             break;
 
+        case 9:
+            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            execFuncionalidade9(nomeDados, nomeIndice, n);
+            break;
+
+        case 10:
+            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            execFuncionalidade10(nomeDados, nomeIndice, n);
+            break;
+
         default:
             break;
     }
