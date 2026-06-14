@@ -279,6 +279,51 @@ static void splitNo(FILE *binIndice,
  * Retorna 1 se houve split e *chavePromovida / *prPromovido /
  * *filhoDireitoPromovido foram preenchidos; 0 caso contrário.
  * ----------------------------------------------------------------------- */
+
+/* ALT
+
+int obterRRNNo(FILE *binIndice, CabecalhoIndice *cab) {
+    if (cab->topo != -1) {
+        int rrn = cab->topo;
+        TNoAB *no = lerNoDoDisco(binIndice, rrn);
+        cab->topo = no->proximo;
+        free(no);
+        return rrn;
+    } else {
+        int novoRRN = cab->proxRRN;
+        cab->proxRRN++;
+        cab->nroNos++;
+        return novoRRN;
+    }
+}
+
+static void splitNo(FILE *binIndice, int rrnAtual, TNoAB *no, int *chavePromovida, int *prPromovido, int *rrnDireito, CabecalhoIndice *cab) {
+    TNoAB *novoNo = criarNoAB();
+
+    novoNo->tipoNo = no->tipoNo;
+
+    *chavePromovida = no->ch[2];
+    *prPromovido = no->pr[2];
+
+    novoNo->ch[0] = no->ch[3];
+    novoNo->pr[0] = no->pr[3];
+    novoNo->filhos[0] = no->filhos[3];
+    novoNo->filhos[1] = no->filhos[4];
+    novoNo->m = 0;
+
+    no->ch[2] = -1;  no->pr[2] = -1;  no->filhos[2] = no->filhos[2];
+    no->ch[3] = -1;  no->pr[3] = -1;  no->filhos[3] = -1;
+    no->filhos[4] = -1;
+    no->m = 1;
+
+    *rrnDireito = obterRRNNo(binIndice, cab);  // <-- ALTERADO
+
+    escreverNoNoDisco(binIndice, rrnAtual,   no);
+    escreverNoNoDisco(binIndice, *rrnDireito, novoNo);
+    free(novoNo);
+}
+*/
+
 int insercaoBTree(FILE *binIndice,
                   int rrnAtual,
                   int Nchave, int Npr,
@@ -621,7 +666,6 @@ void execFuncionalidade9(char *nomeDados, char *nomeIndice, int totalInsercoes) 
 
         // Lê os dados da nova estação do stdin
         estacao_ler_stdin(estacao);
-
 
         if (buscaBTree(binIndice, cabI.noRaiz, codEst(estacao)) != -1) {
                 // chave está na árvore
