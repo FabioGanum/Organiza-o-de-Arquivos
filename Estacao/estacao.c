@@ -127,7 +127,7 @@ bool estacao_ler_stdin(ESTACAO *estacao) {
    // Lê nome da estação entre aspas (ex: "Paulista")
    ScanQuoteString(tmp);
    estacao->tamEst = strlen(tmp);
-   estacao->nomeEst = (char*)malloc(estacao->tamEst);
+   estacao->nomeEst = (char*)malloc(estacao->tamEst + 1);
    strcpy(estacao->nomeEst, tmp);
 
    // Lê código da linha
@@ -136,7 +136,7 @@ bool estacao_ler_stdin(ESTACAO *estacao) {
    // Lê nome da linha entre aspas
    ScanQuoteString(tmp);
    estacao->tamLinha = strlen(tmp);
-   estacao->nomeLinha = (char*)malloc(estacao->tamLinha);
+   estacao->nomeLinha = (char*)malloc(estacao->tamLinha + 1);
    strcpy(estacao->nomeLinha, tmp);
 
    // Lê campos opcionais (podem ser "NULO") e converte para -1 quando necessário
@@ -189,7 +189,13 @@ bool estacao_ler_bin(ESTACAO *estacao, FILE *file) {
    int nums[9]; // armazena os 8 inteiros + tamLinha (índice 8)
 
    // Tenta ler o primeiro byte (removido). Se falhar, é fim de arquivo.
-   if(fread(&buff, 1, 1, file) == 0) return 0;
+   if(fread(&buff, 1, 1, file) == 0) return false;
+
+   if(buff == '1') {
+      estacao->removido = buff;
+      fseek(file, 79, SEEK_CUR);
+      return true;
+   }
 
    // Lê os 8 inteiros (proximo, codEst, codLinha, codProxEst, distProxEst, codLinhaInt, codEstInt, tamEst)
    for(int i = 0; i < 8; i++) {
