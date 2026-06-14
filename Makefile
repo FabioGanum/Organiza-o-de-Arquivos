@@ -1,5 +1,5 @@
 all:
-	gcc -o programaTrab programaTrab.c Fornecidas/fornecidas.c Estacao/estacao.c Cabecalho/cabecalho.c Funcionalidades/funcionalidades.c
+	gcc -g -o programaTrab programaTrab.c Fornecidas/fornecidas.c Estacao/estacao.c Cabecalho/cabecalho.c Funcionalidades/funcionalidades.c
 
 run: all
 	./programaTrab
