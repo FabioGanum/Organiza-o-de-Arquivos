@@ -222,6 +222,23 @@ static int ehFolha(TNoAB *no) {
     return (no->filhos[0] == -1);
 }
 
+/*obterRRNNO: Retorna o rrn necessário*/
+int obterRRNNo(FILE *binIndice, CabecalhoIndice *cab) {
+    if (cab->topo != -1) {
+        int rrn = cab->topo;
+        TNoAB *no = lerNoDoDisco(binIndice, rrn);
+        cab->topo = no->proximo;
+        free(no);
+        cab->nroNos++;
+        return rrn;
+    } else {
+        int novoRRN = cab->proxRRN;
+        cab->proxRRN++;
+        cab->nroNos++;
+        return novoRRN;
+    }
+}
+
 /* -----------------------------------------------------------------------
  * splitNo: dado um nó com 4 chaves (overflow), divide-o em dois e
  * devolve a chave promovida.
@@ -235,68 +252,6 @@ static int ehFolha(TNoAB *no) {
  * nó esquerdo; o filho à direita de ch[2] (filhos[3]) torna-se o
  * primeiro filho do nó direito.
  * ----------------------------------------------------------------------- */
-static void splitNo(FILE *binIndice,
-                    int rrnAtual, TNoAB *no,
-                    int *chavePromovida, int *prPromovido,
-                    int *rrnDireito,
-                    CabecalhoIndice *cab)
-{
-    TNoAB *novoNo = criarNoAB();
-
-    /* tipoNo do novo nó: igual ao original (será ajustado se virar raiz) */
-    novoNo->tipoNo = no->tipoNo;
-
-    /* chave promovida = ch[2] */
-    *chavePromovida = no->ch[2];
-    *prPromovido    = no->pr[2];
-
-    /* nó direito recebe ch[3] e os dois filhos correspondentes */
-    novoNo->ch[0]     = no->ch[3];
-    novoNo->pr[0]     = no->pr[3];
-    novoNo->filhos[0] = no->filhos[3]; /* filho à esquerda de ch[3] */
-    novoNo->filhos[1] = no->filhos[4]; /* filho à direita  de ch[3] */
-    novoNo->m         = 0;
-
-    /* nó esquerdo (original) fica com ch[0] e ch[1];
-       filhos[0], filhos[1] e filhos[2] permanecem */
-    no->ch[2] = -1;  no->pr[2] = -1;  no->filhos[2] = no->filhos[2]; /* já ok */
-    no->ch[3] = -1;  no->pr[3] = -1;  no->filhos[3] = -1;
-                                        no->filhos[4] = -1;
-    no->m = 1;
-
-    /* obtém RRN para o novo nó */
-    *rrnDireito = cab->proxRRN;
-    cab->proxRRN++;
-    cab->nroNos++;
-
-    escreverNoNoDisco(binIndice, rrnAtual,   no);
-    escreverNoNoDisco(binIndice, *rrnDireito, novoNo);
-    free(novoNo);
-}
-
-/* -----------------------------------------------------------------------
- * insercaoBTree (recursivo)
- * Retorna 1 se houve split e *chavePromovida / *prPromovido /
- * *filhoDireitoPromovido foram preenchidos; 0 caso contrário.
- * ----------------------------------------------------------------------- */
-
-/* ALT
-
-int obterRRNNo(FILE *binIndice, CabecalhoIndice *cab) {
-    if (cab->topo != -1) {
-        int rrn = cab->topo;
-        TNoAB *no = lerNoDoDisco(binIndice, rrn);
-        cab->topo = no->proximo;
-        free(no);
-        return rrn;
-    } else {
-        int novoRRN = cab->proxRRN;
-        cab->proxRRN++;
-        cab->nroNos++;
-        return novoRRN;
-    }
-}
-
 static void splitNo(FILE *binIndice, int rrnAtual, TNoAB *no, int *chavePromovida, int *prPromovido, int *rrnDireito, CabecalhoIndice *cab) {
     TNoAB *novoNo = criarNoAB();
 
@@ -322,15 +277,13 @@ static void splitNo(FILE *binIndice, int rrnAtual, TNoAB *no, int *chavePromovid
     escreverNoNoDisco(binIndice, *rrnDireito, novoNo);
     free(novoNo);
 }
-*/
 
-int insercaoBTree(FILE *binIndice,
-                  int rrnAtual,
-                  int Nchave, int Npr,
-                  int *chavePromovida, int *prPromovido,
-                  int *filhoDireitoPromovido,
-                  CabecalhoIndice *cab)
-{
+/* -----------------------------------------------------------------------
+ * insercaoBTree (recursivo)
+ * Retorna 1 se houve split e *chavePromovida / *prPromovido /
+ * *filhoDireitoPromovido foram preenchidos; 0 caso contrário.
+ * ----------------------------------------------------------------------- */
+int insercaoBTree(FILE *binIndice, int rrnAtual, int Nchave, int Npr, int *chavePromovida, int *prPromovido, int *filhoDireitoPromovido, CabecalhoIndice *cab) {
     TNoAB *no = lerNoDoDisco(binIndice, rrnAtual);
 
     if (ehFolha(no)) {
@@ -395,17 +348,14 @@ int insercaoBTree(FILE *binIndice,
 void inserirChaveBTree(FILE *binIndice, int Nchave, int Npr) {
     CabecalhoIndice cab = lerCabecalhoIndice(binIndice);
 
-    /* árvore vazia: cria primeiro nó (folha = raiz, tipoNo = -1) */
     if (cab.noRaiz == -1) {
         TNoAB *raiz = criarNoAB();
-        raiz->tipoNo = -1; /* folha-raiz */
+        raiz->tipoNo = -1;
         raiz->m      = 0;
         raiz->ch[0]  = Nchave;
         raiz->pr[0]  = Npr;
 
-        cab.noRaiz = cab.proxRRN;
-        cab.proxRRN++;
-        cab.nroNos++;
+        cab.noRaiz = obterRRNNo(binIndice, &cab);
 
         escreverNoNoDisco(binIndice, cab.noRaiz, raiz);
         escreverCabecalhoIndice(binIndice, cab);
@@ -414,39 +364,29 @@ void inserirChaveBTree(FILE *binIndice, int Nchave, int Npr) {
     }
 
     int chPromovida, prPromovido, filhoDirPromovido;
-    int houveSplit = insercaoBTree(binIndice, cab.noRaiz,
-                                   Nchave, Npr,
-                                   &chPromovida, &prPromovido,
-                                   &filhoDirPromovido,
-                                   &cab);
+    int houveSplit = insercaoBTree(binIndice, cab.noRaiz, Nchave, Npr, &chPromovida, &prPromovido, &filhoDirPromovido, &cab);
 
     if (houveSplit) {
-        /* cria nova raiz */
         TNoAB *novaRaiz = criarNoAB();
-        novaRaiz->tipoNo    = 0; /* raiz */
+        novaRaiz->tipoNo    = 0;
         novaRaiz->m         = 0;
         novaRaiz->ch[0]     = chPromovida;
         novaRaiz->pr[0]     = prPromovido;
         novaRaiz->filhos[0] = cab.noRaiz;
         novaRaiz->filhos[1] = filhoDirPromovido;
 
-        /* antiga raiz deixa de ser raiz:
-           se tinha filhos → internal (1), senão → folha (-1) */
         TNoAB *antigaRaiz = lerNoDoDisco(binIndice, cab.noRaiz);
         antigaRaiz->tipoNo = (antigaRaiz->filhos[0] == -1) ? -1 : 1;
         escreverNoNoDisco(binIndice, cab.noRaiz, antigaRaiz);
         free(antigaRaiz);
 
-        /* também atualiza tipoNo do filho direito criado pelo split */
         TNoAB *filhoDir = lerNoDoDisco(binIndice, filhoDirPromovido);
         filhoDir->tipoNo = (filhoDir->filhos[0] == -1) ? -1 : 1;
         escreverNoNoDisco(binIndice, filhoDirPromovido, filhoDir);
         free(filhoDir);
 
-        int rrnNovaRaiz = cab.proxRRN;
+        int rrnNovaRaiz = obterRRNNo(binIndice, &cab);
         cab.noRaiz = rrnNovaRaiz;
-        cab.proxRRN++;
-        cab.nroNos++;
 
         escreverNoNoDisco(binIndice, rrnNovaRaiz, novaRaiz);
         free(novaRaiz);
