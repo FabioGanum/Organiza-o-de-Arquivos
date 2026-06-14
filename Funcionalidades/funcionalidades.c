@@ -11,7 +11,7 @@ Lê um arquivo CSV linha a linha (após pular o cabeçalho), converte cada linha
 Ao final, atualiza o cabeçalho do binário e chama BinarioNaTela.
 */
 int create_table(char *csvFile, char *binFile) {
-    FILE *csv = fopen(csvFile, "rb");
+    FILE *csv = fopen(csvFile, "r");
     if(!csv) {
         printf("Falha no processamento do arquivo.");
         return 0;
@@ -23,7 +23,7 @@ int create_table(char *csvFile, char *binFile) {
     while(fread(&buffer, 1, 1, csv) && buffer != '\n') {
     }
 
-    FILE *bin = fopen(binFile, "wb");
+    FILE *bin = fopen(binFile, "wb+");
     if(!bin) {
         fclose(csv);
         printf("Falha no processamento do arquivo.");
@@ -46,8 +46,9 @@ int create_table(char *csvFile, char *binFile) {
         while (check = fread(&buffer, 1, 1, csv)) {
             if (buffer == '\n') {
                 if(counter != 0) {
-                    char *tmp = (char*)malloc(counter);
+                    char *tmp = (char*)malloc(counter+1);
                     memcpy(tmp, string, counter);
+                    tmp[counter] = '\0';
 
                     estacao_codEstInt(estacao, atoi(tmp));
 
@@ -59,8 +60,9 @@ int create_table(char *csvFile, char *binFile) {
 
             if (buffer == ',') {
                 if (counter) {
-                    char *tmp = (char*)malloc(counter);
+                    char *tmp = (char*)malloc(counter+1);
                     memcpy(tmp, string, counter);
+                    tmp[counter] = '\0';
 
                     // Preenche os campos da estação conforme a ordem no CSV
                     switch (entry) {
@@ -88,16 +90,16 @@ int create_table(char *csvFile, char *binFile) {
         estacao_escrever_bin(estacao, bin);
         estacao_esvaziar(estacao);
     }
-
-    // Apaga a struct estação criada e fecha os arquivos abertos
+    // Apaga a struct estação criada
     estacao_apagar(&estacao);
-    fclose(csv);
-    fclose(bin);
 
-    // Reabre o arquivo para atualizar o cabeçalho com informações importantes
-    FILE *file = fopen(binFile, "rb+");
-    cabecalho_atualizar(file);
-    fclose(file);
+    // Fecha o arquivo CSV aberto
+    fclose(csv);
+
+    // Volta ao início do arquivo binário a fim de atualizar o cabeçalho com informações importantes
+    fseek(bin, 0, SEEK_SET);
+    cabecalho_atualizar(bin);
+    fclose(bin);
 
     BinarioNaTela(binFile);
     return 1;
@@ -120,7 +122,9 @@ int select_from(char *fileBin) {
     ESTACAO *estacao = estacao_criar(); // Cria struct estação vazia
 
     // Enquanto o arquivo não termina, continua lendo e escrevendo as estações no terminal (não removidas)
-    while(estacao_ler_bin(estacao, file) == 1) {
+    while(estacao_ler_bin(estacao, file) == true) {
+        if(estacao_removido(estacao)) continue;
+
         estacao_print(estacao);
         estacao_esvaziar(estacao);
     }
@@ -133,7 +137,7 @@ int select_from(char *fileBin) {
 
 /*
 Executa n consultas com condições.
-Para cada consulta, lê m e os pares (tipo, valor).
+Para cada consulta, lê m e os pares (campo, valor).
 Para cada registro do arquivo, verifica se ele atende a todas as condições usando estacao_possui. Exibe os registros que satisfazem.
 */
 int where(char *fileBin, int n) {
@@ -151,17 +155,21 @@ int where(char *fileBin, int n) {
         scanf("%d", &m); // Quantidade dos pares "nome do campo" e "valor do campo"
 
         // Cria array de m nomes de campos e m valores de campos
-        char tipo[m][20];
+        char campo[m][20];
         char valor[m][45];
+
+        bool temChave = false;
 
         // Executa o código m vezes
         for(int j = 0; j < m; j++) {
-            scanf("%s", tipo[j]); // Lê o nome do campo
+            scanf("%s", campo[j]); // Lê o nome do campo
 
             // Se o campo for nomeEstacao ou nomeLinha, o valor lido terá ""
-            if(strcmp(tipo[j], "nomeEstacao") == 0 || strcmp(tipo[j], "nomeLinha") == 0) {
+            if(strcmp(campo[j], "nomeEstacao") == 0 || strcmp(campo[j], "nomeLinha") == 0) {
                 ScanQuoteString(valor[j]);
             } else {
+                if(strcmp(campo[j], "codEstacao") == 0) temChave = true;
+
                 scanf("%s", valor[j]);
             }
         }
@@ -173,12 +181,16 @@ int where(char *fileBin, int n) {
         ESTACAO *estacao = estacao_criar(); // Cria struct estacao
 
         // Lê estações no arquivo até acabar
-        while(estacao_ler_bin(estacao, file) == 1) {
-            bool check = true;
+        while(estacao_ler_bin(estacao, file) == true) {
+            if(estacao_removido(estacao)) continue;
+
+            bool check = true, end = false;
 
             // Verifica se a estação possui valores equivalentes aos dados
             for(int j = 0; j < m; j++) {
-                if(!estacao_possui(estacao, tipo[j], valor[j])) check = false;
+                if(!estacao_possui(estacao, campo[j], valor[j])) check = false;
+
+                if(strcmp(campo[j], "codEstacao") == 0 && atoi(valor[j]) == codEst(estacao)) end = true;
             }
 
             // Se possuí, imprime a estação no terminal e marca que alguma estação com esses valores existe
@@ -186,6 +198,8 @@ int where(char *fileBin, int n) {
                 estacao_print(estacao);
                 exists = true;
             }
+
+            if(end) break;
 
             estacao_esvaziar(estacao); // Esvazia estação preparando pra próxima leitura
         }
@@ -235,15 +249,15 @@ int delete_from(char *fileBin, int n) {
         scanf("%d", &m); // Quantidade dos pares "nome do campo" e "valor do campo"
 
         // Cria array de m nomes de campos e m valores de campos
-        char tipo[m][20];
+        char campo[m][20];
         char valor[m][45];
 
         // Executa o código m vezes
         for(int j = 0; j < m; j++) {
-            scanf("%s", tipo[j]); // Lê o nome do campo
+            scanf("%s", campo[j]); // Lê o nome do campo
 
             // Se o campo for nomeEstacao ou nomeLinha, o valor lido terá ""
-            if(strcmp(tipo[j], "nomeEstacao") == 0 || strcmp(tipo[j], "nomeLinha") == 0) {
+            if(strcmp(campo[j], "nomeEstacao") == 0 || strcmp(campo[j], "nomeLinha") == 0) {
                 ScanQuoteString(valor[j]);
             } else {
                 scanf("%s", valor[j]);
@@ -259,12 +273,14 @@ int delete_from(char *fileBin, int n) {
         ESTACAO *estacao = estacao_criar(); // Cria struct estacao
 
         // Lê estações no arquivo até acabar
-        while(estacao_ler_bin(estacao, file) == 1) {
+        while(estacao_ler_bin(estacao, file) == true) {
+            if(estacao_removido(estacao)) continue;
+
             bool check = true;
 
             // Verifica se a estação possui valores equivalentes aos dados
             for(int j = 0; j < m; j++) {
-                if(!estacao_possui(estacao, tipo[j], valor[j])) check = false;
+                if(!estacao_possui(estacao, campo[j], valor[j])) check = false;
             }
 
             // Se a estação bate, remove logicamente a estação e a adiciona na pilha de registros
@@ -346,7 +362,6 @@ int insert_into(char *fileBin, int n) {
         // Escreve a estação no local determinado
         estacao_escrever_bin(estacao, file);
 
-
         // Esvazia a struct para o próximo uso
         estacao_esvaziar(estacao);
     }
@@ -370,9 +385,9 @@ int insert_into(char *fileBin, int n) {
 Atualiza campos de registros que atendem a condições WHERE.
 Para cada operação:
 - Lê o número m de condições de busca (WHERE).
-- Lê os pares (tipo, valor) dessas condições.
+- Lê os pares (campo, valor) dessas condições.
 - Lê o número p de atribuições (SET).
-- Lê os pares (tipo, valor) das atualizações.
+- Lê os pares (campo, valor) das atualizações.
 - Abre o arquivo, percorre os registros.
 - Se o registro não estiver removido e satisfizer as condições de busca, para cada atribuição chama estacao_atualizar e depois reescreve o registro no mesmo local (fseek -80, escreve).
 Após todas as operações, recalcula o cabeçalho e chama BinarioNaTela.
@@ -397,15 +412,15 @@ int update(char *fileBin, int n) {
     for(int i = 0; i < n; i++) {
         // Lê a quantidade de condições de busca (WHERE)
         scanf("%d", &m);
-        char tipoB[m][20];
+        char campoB[m][20];
         char valorB[m][45];
 
-        // Lê cada par (tipo, valor) de busca
+        // Lê cada par (campo, valor) de busca
         for(int j = 0; j < m; j++) {
-            scanf("%s", tipoB[j]);
+            scanf("%s", campoB[j]);
 
             // Campos de string podem vir entre aspas
-            if(strcmp(tipoB[j], "nomeEstacao") == 0 || strcmp(tipoB[j], "nomeLinha") == 0) {
+            if(strcmp(campoB[j], "nomeEstacao") == 0 || strcmp(campoB[j], "nomeLinha") == 0) {
                 ScanQuoteString(valorB[j]);
             } else {
                 scanf("%s", valorB[j]);
@@ -414,14 +429,14 @@ int update(char *fileBin, int n) {
 
         // Lê a quantidade de atribuições (SET)
         scanf("%d", &p);
-        char tipoA[p][20];
+        char campoA[p][20];
         char valorA[p][45];
 
         // Lê cada par (campo, novo valor) para atualização
         for(int j = 0; j < p; j++) {
-            scanf("%s", tipoA[j]);
+            scanf("%s", campoA[j]);
 
-            if(strcmp(tipoA[j], "nomeEstacao") == 0 || strcmp(tipoA[j], "nomeLinha") == 0) {
+            if(strcmp(campoA[j], "nomeEstacao") == 0 || strcmp(campoA[j], "nomeLinha") == 0) {
                 ScanQuoteString(valorA[j]);
             } else {
                 scanf("%s", valorA[j]);
@@ -432,20 +447,20 @@ int update(char *fileBin, int n) {
         ESTACAO *estacao = estacao_criar();
 
         // Percorre todos os registros do arquivo
-        while(estacao_ler_bin(estacao, file) == 1) {
+        while(estacao_ler_bin(estacao, file) == true) {
             // Só considera registros não removidos
             if(!estacao_removido(estacao)) {
                 bool check = true;
 
                 // Verifica se o registro satisfaz todas as condições de busca
                 for(int j = 0; j < m; j++) {
-                    if(!estacao_possui(estacao, tipoB[j], valorB[j])) check = false;
+                    if(!estacao_possui(estacao, campoB[j], valorB[j])) check = false;
                 }
 
                 // Se todas as condições forem atendidas, aplica as atualizações
                 if(check) {
                     for(int j = 0; j < p; j++) {
-                        estacao_atualizar(estacao, tipoA[j], valorA[j]);
+                        estacao_atualizar(estacao, campoA[j], valorA[j]);
                     }
                 }
 
