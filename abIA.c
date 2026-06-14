@@ -395,6 +395,283 @@ void inserirChaveBTree(FILE *binIndice, int Nchave, int Npr) {
     escreverCabecalhoIndice(binIndice, cab);
 }
 
+//                  EXCLUSAO
+/* -------------------------------------------------------------------
+ * empilharNo: marca o nó como removido e o coloca no topo da pilha.
+ * ------------------------------------------------------------------- */
+void empilharNo(FILE *binIndice, CabecalhoIndice *cab, int rrn) {
+    TNoAB *no    = lerNoDoDisco(binIndice, rrn);
+    no->removido = '1';
+    no->proximo  = cab->topo;   /* encadeia com o topo atual */
+    escreverNoNoDisco(binIndice, rrn, no);
+    free(no);
+    cab->topo   = rrn;
+    cab->nroNos--;
+}
+
+/* -------------------------------------------------------------------
+ * tratarUnderflow: filho em idxFilho do pai ficou com m = -1 (0 chaves).
+ * Ordem: redistribuir com irmão direito → redistribuir com esquerdo
+ *        → concatenar com esquerdo (ou direito se não houver esquerdo).
+ * Retorna 1 se o pai também ficou com underflow após concatenação.
+ * ------------------------------------------------------------------- */
+int tratarUnderflow(FILE *binIndice, CabecalhoIndice *cab,
+                            int rrnPai, int idxFilho) {
+
+    TNoAB *pai   = lerNoDoDisco(binIndice, rrnPai);
+    int rrnFilho = pai->filhos[idxFilho];
+    TNoAB *filho = lerNoDoDisco(binIndice, rrnFilho);
+
+    /* ---- 1. Redistribuir com irmão DIREITO ---- */
+    if (idxFilho <= pai->m) {
+        int rrnDir = pai->filhos[idxFilho + 1];
+        TNoAB *dir = lerNoDoDisco(binIndice, rrnDir);
+
+        /* Redistribuição possível se dir tem mais que o mínimo (m >= 1 = 2 chaves) */
+        if (dir->m >= 1) {
+            /* Separador desce para filho; primeira chave de dir sobe para pai */
+            filho->m++;
+            filho->ch[filho->m]         = pai->ch[idxFilho];
+            filho->pr[filho->m]         = pai->pr[idxFilho];
+            filho->filhos[filho->m + 1] = dir->filhos[0]; /* 1º filho de dir → último de filho */
+
+            pai->ch[idxFilho] = dir->ch[0];
+            pai->pr[idxFilho] = dir->pr[0];
+
+            /* Desloca dir para a esquerda removendo ch[0] e filhos[0] */
+            dir->filhos[0] = dir->filhos[1];
+            for (int i = 0; i < dir->m; i++) {
+                dir->ch[i]       = dir->ch[i + 1];
+                dir->pr[i]       = dir->pr[i + 1];
+                dir->filhos[i+1] = dir->filhos[i + 2];
+            }
+            dir->ch[dir->m]         = -1;
+            dir->pr[dir->m]         = -1;
+            dir->filhos[dir->m + 1] = -1;
+            dir->m--;
+
+            escreverNoNoDisco(binIndice, rrnPai,   pai);
+            escreverNoNoDisco(binIndice, rrnFilho, filho);
+            escreverNoNoDisco(binIndice, rrnDir,   dir);
+            free(pai); free(filho); free(dir);
+            return 0;
+        }
+        free(dir);
+    }
+
+    /* ---- 2. Redistribuir com irmão ESQUERDO ---- */
+    if (idxFilho >= 1) {
+        int rrnEsq = pai->filhos[idxFilho - 1];
+        TNoAB *esq = lerNoDoDisco(binIndice, rrnEsq);
+
+        if (esq->m >= 1) {
+            /* Separador desce para posição 0 de filho; última chave de esq sobe */
+            filho->filhos[1] = filho->filhos[0]; /* único filho de filho vai para posição 1 */
+            filho->ch[0]     = pai->ch[idxFilho - 1];
+            filho->pr[0]     = pai->pr[idxFilho - 1];
+            filho->filhos[0] = esq->filhos[esq->m + 1]; /* último filho de esq → 1º de filho */
+            filho->m         = 0;
+
+            pai->ch[idxFilho - 1] = esq->ch[esq->m];
+            pai->pr[idxFilho - 1] = esq->pr[esq->m];
+
+            esq->ch[esq->m]         = -1;
+            esq->pr[esq->m]         = -1;
+            esq->filhos[esq->m + 1] = -1;
+            esq->m--;
+
+            escreverNoNoDisco(binIndice, rrnPai,   pai);
+            escreverNoNoDisco(binIndice, rrnFilho, filho);
+            escreverNoNoDisco(binIndice, rrnEsq,   esq);
+            free(pai); free(filho); free(esq);
+            return 0;
+        }
+        free(esq);
+    }
+
+    /* ---- 3. Concatenação ---- */
+    int paiMFinal;
+
+    if (idxFilho >= 1) {
+        /* Tem irmão esquerdo: esq + separador + filho → esq; filho (direita) destruído */
+        int rrnEsq = pai->filhos[idxFilho - 1];
+        TNoAB *esq = lerNoDoDisco(binIndice, rrnEsq);
+
+        /* Separador desce para esq, seguido do único filho de filho */
+        int pos            = esq->m + 1;
+        esq->ch[pos]       = pai->ch[idxFilho - 1];
+        esq->pr[pos]       = pai->pr[idxFilho - 1];
+        esq->filhos[pos+1] = filho->filhos[0]; /* único filho (ou -1 se folha) */
+        esq->m             = pos;
+
+        /* Remove separador e ponteiro para filho do pai */
+        for (int i = idxFilho - 1; i < pai->m; i++) {
+            pai->ch[i]       = pai->ch[i + 1];
+            pai->pr[i]       = pai->pr[i + 1];
+            pai->filhos[i+1] = pai->filhos[i + 2];
+        }
+        pai->ch[pai->m]         = -1;
+        pai->pr[pai->m]         = -1;
+        pai->filhos[pai->m + 1] = -1;
+        pai->m--;
+
+        escreverNoNoDisco(binIndice, rrnEsq, esq);
+        escreverNoNoDisco(binIndice, rrnPai, pai);
+        empilharNo(binIndice, cab, rrnFilho); /* filho (direita) é destruído */
+        free(esq);
+
+    } else {
+        /* Sem irmão esquerdo: filho + separador + dir → filho; dir (direita) destruído */
+        int rrnDir = pai->filhos[1];
+        TNoAB *dir = lerNoDoDisco(binIndice, rrnDir);
+
+        /* Separador desce para filho[0], depois copia conteúdo de dir */
+        filho->ch[0]     = pai->ch[0];
+        filho->pr[0]     = pai->pr[0];
+        filho->filhos[1] = dir->filhos[0];
+        filho->m         = 0;
+        for (int i = 0; i <= dir->m; i++) {
+            int p          = filho->m + 1;
+            filho->ch[p]       = dir->ch[i];
+            filho->pr[p]       = dir->pr[i];
+            filho->filhos[p+1] = dir->filhos[i + 1];
+            filho->m           = p;
+        }
+
+        /* Remove separador e ponteiro para dir do pai */
+        for (int i = 0; i < pai->m; i++) {
+            pai->ch[i]       = pai->ch[i + 1];
+            pai->pr[i]       = pai->pr[i + 1];
+            pai->filhos[i+1] = pai->filhos[i + 2];
+        }
+        pai->ch[pai->m]         = -1;
+        pai->pr[pai->m]         = -1;
+        pai->filhos[pai->m + 1] = -1;
+        pai->m--;
+
+        escreverNoNoDisco(binIndice, rrnFilho, filho);
+        escreverNoNoDisco(binIndice, rrnPai,   pai);
+        empilharNo(binIndice, cab, rrnDir); /* dir (direita) é destruído */
+        free(dir);
+    }
+
+    paiMFinal = pai->m;
+    free(pai);
+    free(filho);
+    return (paiMFinal < 0); /* propaga underflow se pai ficou com 0 chaves */
+}
+
+/* -------------------------------------------------------------------
+ * removerRecursivo: desce a árvore e remove a chave.
+ * Retorna 1 se o nó atual ficou com underflow (m = -1).
+ * ------------------------------------------------------------------- */
+int removerRecursivo(FILE *binIndice, CabecalhoIndice *cab,
+                             int rrnAtual, int chave) {
+    TNoAB *no = lerNoDoDisco(binIndice, rrnAtual);
+    int i;
+
+    for (i = 0; i <= no->m; i++) {
+
+        if (chave == no->ch[i]) {
+
+            if (ehFolha(no)) {
+                /* Folha: remove diretamente deslocando chaves para a esquerda */
+                for (int j = i; j < no->m; j++) {
+                    no->ch[j] = no->ch[j + 1];
+                    no->pr[j] = no->pr[j + 1];
+                }
+                no->ch[no->m] = -1;
+                no->pr[no->m] = -1;
+                no->m--;
+                escreverNoNoDisco(binIndice, rrnAtual, no);
+                int mFinal = no->m;
+                free(no);
+                return (mFinal < 0);
+
+            } else {
+                /* Nó interno: substitui pela sucessora imediata (mínimo da subárvore direita) */
+                int rrnSuc = no->filhos[i + 1];
+                TNoAB *cur = lerNoDoDisco(binIndice, rrnSuc);
+                while (cur->filhos[0] != -1) {
+                    int prox = cur->filhos[0];
+                    free(cur);
+                    rrnSuc = prox;
+                    cur    = lerNoDoDisco(binIndice, rrnSuc);
+                }
+                /* cur é a folha mais à esquerda da subárvore direita */
+                int chaveSuc  = cur->ch[0];
+                int prSuc     = cur->pr[0];
+                int rrnDirSub = no->filhos[i + 1];
+                free(cur);
+
+                /* Substitui a chave pelo seu sucessor e grava */
+                no->ch[i] = chaveSuc;
+                no->pr[i] = prSuc;
+                escreverNoNoDisco(binIndice, rrnAtual, no);
+                free(no);
+
+                /* Remove o sucessor da subárvore direita */
+                int underflow = removerRecursivo(binIndice, cab, rrnDirSub, chaveSuc);
+                if (underflow)
+                    return tratarUnderflow(binIndice, cab, rrnAtual, i + 1);
+                return 0;
+            }
+        }
+
+        if (chave < no->ch[i]) break; /* desce para filhos[i] */
+    }
+
+    /* Chave não está neste nó: desce para o filho correto */
+    if (no->filhos[i] == -1) {
+        free(no);
+        return 0; /* chave não existe na árvore */
+    }
+
+    int rrnFilho = no->filhos[i];
+    free(no);
+
+    int underflow = removerRecursivo(binIndice, cab, rrnFilho, chave);
+    if (underflow)
+        return tratarUnderflow(binIndice, cab, rrnAtual, i);
+    return 0;
+}
+
+/* -------------------------------------------------------------------
+ * removerChaveBTree: ponto de entrada público.
+ * Também trata o colapso da raiz quando fica sem chaves.
+ * ------------------------------------------------------------------- */
+void removerChaveBTree(FILE *binIndice, int chave) {
+    CabecalhoIndice cab = lerCabecalhoIndice(binIndice);
+    if (cab.noRaiz == -1) return; /* árvore vazia */
+
+    int underflow = removerRecursivo(binIndice, &cab, cab.noRaiz, chave);
+
+    if (underflow) {
+        TNoAB *raiz       = lerNoDoDisco(binIndice, cab.noRaiz);
+        int rrnAntigaRaiz = cab.noRaiz;
+
+        if (raiz->filhos[0] != -1) {
+            /* Raiz ficou com 0 chaves mas tem 1 filho: filho vira nova raiz */
+            int rrnNovaRaiz = raiz->filhos[0];
+            free(raiz);
+            cab.noRaiz = rrnNovaRaiz;
+
+            TNoAB *novaRaiz  = lerNoDoDisco(binIndice, cab.noRaiz);
+            novaRaiz->tipoNo = (novaRaiz->filhos[0] == -1) ? -1 : 0;
+            escreverNoNoDisco(binIndice, cab.noRaiz, novaRaiz);
+            free(novaRaiz);
+        } else {
+            /* Raiz era folha e ficou vazia: árvore completamente vazia */
+            free(raiz);
+            cab.noRaiz = -1;
+        }
+
+        empilharNo(binIndice, &cab, rrnAntigaRaiz); /* descarta a antiga raiz */
+    }
+
+    escreverCabecalhoIndice(binIndice, cab);
+}
+
 /* ======================================================================
    FUNCIONALIDADES 7 – 10
    ====================================================================== */
