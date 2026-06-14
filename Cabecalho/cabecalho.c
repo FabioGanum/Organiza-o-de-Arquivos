@@ -80,14 +80,29 @@ bool cabecalho_atualizar(FILE *file) {
     cabecalho_ler(cabecalho, file);
 
     int totalRegistros = 0; // total de registros no arquivo (incluindo removidos)
-    char nomesDistintos[300][45]; // armazena nomes de estações únicos
+    
+    // Arrays dinâmicos
+    int capacidadeNomes = 300;
+    int capacidadePares = 300;
+
+    char (*nomesDistintos)[45] = malloc(capacidadeNomes * sizeof(*nomesDistintos));
+    if (!nomesDistintos) {
+        free(cabecalho);
+        return false;
+    }
     int qtdNomes = 0;
 
     typedef struct {
         int codEst;
         int codProx;
     } Par;
-    Par paresDistintos[300]; // armazena pares (codEst, codProxEst) únicos
+
+    Par *paresDistintos = malloc(capacidadePares * sizeof(Par));
+    if (!paresDistintos) {
+        free(nomesDistintos);
+        free(cabecalho);
+        return false;
+    }
     int qtdPares = 0;
 
     ESTACAO *estacao = estacao_criar();
@@ -109,6 +124,18 @@ bool cabecalho_atualizar(FILE *file) {
                 }
             }
             if(!nomeExiste) {
+                // Realoca se necessário
+                if (qtdNomes >= capacidadeNomes) {
+                    capacidadeNomes *= 2;
+                    nomesDistintos = realloc(nomesDistintos, capacidadeNomes * sizeof(*nomesDistintos));
+                    if (!nomesDistintos) {
+                        free(paresDistintos);
+                        free(cabecalho);
+                        estacao_apagar(&estacao);
+                        return false;
+                    }
+                }
+
                 strcpy(nomesDistintos[qtdNomes], nomeAtual);
                 qtdNomes++;
             }
@@ -130,6 +157,19 @@ bool cabecalho_atualizar(FILE *file) {
                     }
                 }
                 if(!parExiste) {
+                    // Realoca se necessário
+                    if (qtdPares >= capacidadePares) {
+                        capacidadePares *= 2;
+                        paresDistintos = realloc(paresDistintos, capacidadePares * sizeof(Par));
+
+                        if (!paresDistintos) {
+                            free(nomesDistintos);
+                            free(cabecalho);
+                            estacao_apagar(&estacao);
+                            return false;
+                        }
+                    }
+                    
                     paresDistintos[qtdPares] = parAtual;
                     qtdPares++;
                 }
@@ -153,12 +193,14 @@ bool cabecalho_atualizar(FILE *file) {
     fwrite(&cabecalho->nroEstacoes, 4, 1, file);
     fwrite(&cabecalho->nroParesEstacao, 4, 1, file);
 
+    // Libera memória alocada dinamicamente
+    free(nomesDistintos);
+    free(paresDistintos);
     estacao_apagar(&estacao);
     free(cabecalho);
 
     return true;
 }
-
 /*
 Lê o cabeçalho do arquivo e imprime seus campos formatados na tela.
  */
