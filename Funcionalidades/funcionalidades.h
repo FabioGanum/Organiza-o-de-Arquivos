@@ -19,4 +19,16 @@
     // Atualiza campos de registros que atendem a condições WHERE.
     int update(char *fileBin, int n);
 
+    // Cria um arquivo binário de índice à partir de um arquivo de dados binário
+    void create_indice(char *nomeDados, char *nomeIndice);
+
+    // Executa n consultas com condições com índice caso possível.
+    void select_from_indice(char *nomeDados, char *nomeIndice, int nBuscas);
+
+    // Insere n novos registros no arquivo de dados binário e no índice.
+    void insert_into_indice(char *nomeDados, char *nomeIndice, int totalInsercoes);
+
+    // Marca como removidos os registros que atendem às condições WHERE usando índice. 
+    void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes);
+
 #endif
