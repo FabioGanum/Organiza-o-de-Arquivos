@@ -1,7 +1,12 @@
+/**
+ * @file main.c
+ * @brief Implementação completa do sistema de indexação com Árvore-B para trabalho prático 1
+ * @author Fabio Ganum Filho - 15450803, Felipe Gausmann Socolowski - 16812461
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "Funcionalidades/funcionalidades.h"
-#include "abIA.c"
 
 int main(void) {
     int selector, n; // selector = funcionalidade, n = número de consultas
@@ -41,24 +46,24 @@ int main(void) {
             update(arq, n);
             break;
 
-        case 7:
+        case 7: // Cria arquivo de índice usando árvore B
             scanf(" %49s %49s", nomeDados, nomeIndice);
-            execFuncionalidade7(nomeDados, nomeIndice);
+            create_indice(nomeDados, nomeIndice);
             break;
 
-        case 8:
+        case 8: // Seleciona dados do arquivo binário com auxílio do índice
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
-            execFuncionalidade8(nomeDados, nomeIndice, n);
+            select_from_indice(nomeDados, nomeIndice, n);
             break;
 
-        case 9:
+        case 9: // Insere um novo registro no arquivo de dados e índice
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
-            execFuncionalidade9(nomeDados, nomeIndice, n);
+            insert_into_indice(nomeDados, nomeIndice, n);
             break;
 
-        case 10:
+        case 10: // Marca registros como logicamente removido no arquivo de dados e remove do índice
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
-            execFuncionalidade10(nomeDados, nomeIndice, n);
+            delete_from_indice(nomeDados, nomeIndice, n);
             break;
 
         default:
