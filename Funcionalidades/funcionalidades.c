@@ -524,6 +524,7 @@ void create_indice(char *nomeDados, char *nomeIndice) {
         }
         estacao_esvaziar(estacao);
     }
+    estacao_apagar(&estacao);
 
     cabI = lerCabecalhoIndice(binIndice);
     cabI.status = '1';
@@ -674,9 +675,6 @@ void select_from_indice(char *nomeDados, char *nomeIndice, int nBuscas) {
 
 // Insere n novos registros no arquivo de dados binário e no índice.
 void insert_into_indice(char *nomeDados, char *nomeIndice, int totalInsercoes) {
-    // Cria struct da estação
-    ESTACAO *estacao = estacao_criar();
-
     FILE *binDados  = fopen(nomeDados,  "rb+");
     FILE *binIndice = fopen(nomeIndice, "rb+");
     if (!binDados || !binIndice) {
@@ -688,6 +686,9 @@ void insert_into_indice(char *nomeDados, char *nomeIndice, int totalInsercoes) {
 
     char buff = '0';
     int localDados;
+
+    // Cria struct da estação
+    ESTACAO *estacao = estacao_criar();
 
     // Marca o status do cabeçalho como inconsistente e lê o cabeçalho: topo
     fwrite(&buff, 1, 1, binDados);
@@ -704,7 +705,7 @@ void insert_into_indice(char *nomeDados, char *nomeIndice, int totalInsercoes) {
         estacao_ler_stdin(estacao);
 
         if (buscaBTree(binIndice, cabI.noRaiz, codEst(estacao)) != -1) {
-                // chave está na árvore
+                estacao_esvaziar(estacao);
                 continue;
         }
 
@@ -729,6 +730,7 @@ void insert_into_indice(char *nomeDados, char *nomeIndice, int totalInsercoes) {
         // Esvazia a struct para o próximo uso
         estacao_esvaziar(estacao);
     }
+    estacao_apagar(&estacao);
 
     // Atualiza o topo da pilha de registros logicamente removidos no cabeçalho
     fseek(binDados, 1, SEEK_SET);
@@ -827,7 +829,7 @@ void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes
             estacao_ler_bin(estacao, binDados);
 
             if (estacao_removido(estacao)) {
-                // Registro foi removido logicamente após ser indexado
+                estacao_apagar(&estacao);
                 continue;
             }
 
@@ -844,6 +846,7 @@ void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes
                 fwrite(&localDados, 4, 1, binDados);
                 localDados = (byteOffset-17)/80;
             } else {
+                estacao_apagar(&estacao);
                 continue;
             }
 
@@ -864,10 +867,6 @@ void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes
                 // Verifica se a estação possui valores equivalentes aos dados
                 for(int j = 0; j < m; j++) {
                     if(!estacao_possui(estacao, campos[j], valor[j])) check = false;
-                }
-
-                if(estacao_removido(estacao)) {
-                    continue;
                 }
 
                 // Se possuí, marca a estação como removida
