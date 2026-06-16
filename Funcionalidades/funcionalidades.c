@@ -613,6 +613,7 @@ void select_from_indice(char *nomeDados, char *nomeIndice, int nBuscas) {
             if (estacao_removido(estacao)) {
                 // Registro foi removido logicamente após ser indexado
                 printf("Registro inexistente.\n\n");
+                estacao_apagar(&estacao);
                 continue;
             }
 
