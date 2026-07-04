@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "Funcionalidades/funcionalidades.h"
+#include "juncao.c"
 
 int main(void) {
     int selector, n; // selector = funcionalidade, n = número de consultas
@@ -65,8 +66,25 @@ int main(void) {
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
             delete_from_indice(nomeDados, nomeIndice, n);
             break;
+/*
+        case 11: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+            scanf(" %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice);
+            
+            break;
+
+        case 12: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            break;
+
+        case 13: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            break;
+
+        case 14: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            break;
 
         default:
-            break;
+            break;*/
     }
 }
