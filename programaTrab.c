@@ -66,12 +66,12 @@ int main(void) {
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
             delete_from_indice(nomeDados, nomeIndice, n);
             break;
-/*
+
         case 11: // Marca registros como logicamente removido no arquivo de dados e remove do índice
             scanf(" %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice);
-            
+            execFuncionalidade11(arq, nomeDados, arqIn, nomeIndice);
             break;
-
+/*
         case 12: // Marca registros como logicamente removido no arquivo de dados e remove do índice
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
             break;

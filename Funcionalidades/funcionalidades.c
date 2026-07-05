@@ -6,7 +6,7 @@
 #include "../Cabecalho/cabecalho.h"
 #include "../Fornecidas/fornecidas.h"
 #include "../Indice/indice.c"
-
+//#include "../juncao.c"
 /*
 Lê um arquivo CSV linha a linha (após pular o cabeçalho), converte cada linha em um registro ESTACAO e escreve no arquivo binário.
 Ao final, atualiza o cabeçalho do binário e chama BinarioNaTela.
