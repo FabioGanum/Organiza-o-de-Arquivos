@@ -31,4 +31,10 @@
     // Marca como removidos os registros que atendem às condições WHERE usando índice. 
     void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes);
 
+    void execFuncionalidade11(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2);
+
+    void execFuncionalidade12(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2, char *nomeIndice);
+
+    void execFuncionalidade13(char *nomeArq, char *campo, char *nomeArq2);
+
 #endif

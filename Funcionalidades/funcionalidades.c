@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include "../Estacao/estacao.h"
 #include "../Cabecalho/cabecalho.h"
 #include "../Fornecidas/fornecidas.h"
 #include "../Indice/indice.c"
-//#include "../juncao.c"
+#include "../juncao.c"
 /*
 Lê um arquivo CSV linha a linha (após pular o cabeçalho), converte cada linha em um registro ESTACAO e escreve no arquivo binário.
 Ao final, atualiza o cabeçalho do binário e chama BinarioNaTela.
@@ -905,4 +906,262 @@ void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes
 
     BinarioNaTela(nomeDados);
     BinarioNaTela(nomeIndice);
+}
+
+/*
+ execFuncionalidade11: junção de loop aninhado.
+ 
+ Loop externo: cada registro de arq1 com campo1 = codProxEstacao
+ Loop interno: cada registro de arq2 com campo2 = codEstacao
+ Condição de junção: est1.codProxEstacao == est2.codEstacao
+ 
+ Saída por linha: codEstacao nomeEstacao nomeLinha codProxEstacao nomeProxEstacao
+ */
+void execFuncionalidade11(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2) {
+    FILE *fp1 = fopen(nomeArq1, "rb");
+    FILE *fp2 = fopen(nomeArq2, "rb");
+
+    if (!fp1 || !fp2) {
+        printf("Falha no processamento do arquivo.\n");
+        if (fp1) fclose(fp1);
+        if (fp2) fclose(fp2);
+        return;
+    }
+
+    // Verifica consistência dos arquivos
+    Cabecalho_s cab1 = lerCab(fp1);
+    Cabecalho_s cab2 = lerCab(fp2);
+    if (cab1.status == '0' || cab2.status == '0') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fp1);
+        fclose(fp2);
+        return;
+    }
+
+    bool encontrou = false;
+    ESTACAO *est1 = estacao_criar();
+    ESTACAO *est2 = estacao_criar();
+
+    fseek(fp1, 17, SEEK_SET);
+
+    //Loop externo: percorre arq1
+    while (estacao_ler_bin(est1, fp1)) {
+        if (estacao_removido(est1)) continue;
+
+        // Obtém o valor do campo de junção de est1 (codProxEstacao)
+        int codProx = codProxEst(est1);  // adapte para getter
+        if (codProx == -1) continue;
+
+        fseek(fp2, 17, SEEK_SET);
+
+        // Loop interno: percorre arq2
+        while (estacao_ler_bin(est2, fp2)) {
+            if (estacao_removido(est2)) continue;
+
+            // Condição de junção: est1.codProxEstacao == est2.codEstacao
+            if (codEst(est2) == codProx) {
+                // Imprime os campos exigidos pela spec:
+                // codEstacao  nomeEstacao  nomeLinha  codProxEstacao  nomeProxEstacao
+                // Os três primeiros vêm de est1; nomeProxEstacao vem de est2.
+                printf("%d %s %s %d %s\n",
+                    codEst(est1),
+                    nomeEst(est1),  // adapte para getter
+                    nomeLinha(est1),    // adapte para getter
+                    codProx,
+                    nomeEst(est2)); // adapte para getter
+
+                encontrou = true;
+            }
+
+            estacao_esvaziar(est2);
+        }
+        
+        estacao_esvaziar(est1);
+    }
+
+    if (!encontrou) printf("Registro inexistente.\n");
+
+    estacao_apagar(&est1);
+    estacao_apagar(&est2);
+    fclose(fp1);
+    fclose(fp2);
+}
+
+/*
+ execFuncionalidade12: junção de loop único com índice árvore-B.
+
+ Loop externo: cada registro de arq1 (codProxEstacao)
+ Loop interno substituído por: buscaBTree no índice de arq2 (codEstacao)
+ 
+ Saída por linha: codEstacao nomeEstacao nomeLinha codProxEstacao nomeProxEstacao
+*/
+void execFuncionalidade12(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2, char *nomeIndice) {
+    FILE *fp1 = fopen(nomeArq1, "rb");
+    FILE *fp2 = fopen(nomeArq2, "rb");
+    FILE *fpIndice = fopen(nomeIndice, "rb");
+
+    if (!fp1 || !fp2 || !fpIndice) {
+        printf("Falha no processamento do arquivo.\n");
+        if (fp1) fclose(fp1);
+        if (fp2) fclose(fp2);
+        if (fpIndice) fclose(fpIndice);
+        return;
+    }
+
+    // Verifica consistência dos três arquivos
+    Cabecalho_s cab1 = lerCab(fp1);
+    Cabecalho_s cab2 = lerCab(fp2);
+    CabecalhoIndice cabI = lerCabecalhoIndice(fpIndice);
+
+    if (cab1.status == '0' || cab2.status == '0' || cabI.status == '0') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fp1);
+        fclose(fp2);
+        fclose(fpIndice);
+        return;
+    }
+
+    bool encontrou = false;
+    ESTACAO *est1 = estacao_criar();
+    ESTACAO *est2 = estacao_criar();
+
+    fseek(fp1, 17, SEEK_SET);
+
+    //Loop externo: percorre arq1
+    while (estacao_ler_bin(est1, fp1)) {
+        if (estacao_removido(est1)) continue;
+
+        int codProx = codProxEst(est1);
+        if (codProx == -1) continue; // NULO: sem próxima estação
+
+        // "Loop interno" substituído pela busca no índice
+        // buscaBTree retorna o byte-offset do registro em arq2
+        // cujo codEstacao == codProx, ou -1 se não encontrado.
+        int byteOffset = buscaBTree(fpIndice, cabI.noRaiz, codProx);
+        if (byteOffset == -1) {
+            estacao_esvaziar(est1);
+            continue; // não há correspondência
+        }
+
+        //Lê o registro de arq2 diretamente pelo offset retornado
+        fseek(fp2, byteOffset, SEEK_SET);
+        estacao_ler_bin(est2, fp2);
+
+        if (!estacao_removido(est2)) {
+            // Imprime: codEstacao nomeEstacao nomeLinha codProxEstacao nomeProxEstacao
+            // nomeProxEstacao vem de est2
+            printf("%d %s %s %d %s\n",
+                codEst(est1),
+                nomeEst(est1),
+                nomeLinha(est1),
+                codProx,
+                nomeEst(est2)); 
+
+            encontrou = true;
+        }
+
+        estacao_esvaziar(est1);
+        estacao_esvaziar(est2);
+    }
+
+    if (!encontrou) printf("Registro inexistente.\n");
+
+    estacao_apagar(&est1);
+    estacao_apagar(&est2);
+    fclose(fp1);
+    fclose(fp2);
+    fclose(fpIndice);
+}
+
+void execFuncionalidade13(char *nomeArq, char *campo, char *nomeArq2) {
+    FILE *fp = fopen(nomeArq, "rb");
+
+    if (!fp) {
+        printf("Falha no processamento do arquivo.\n");
+        if (fp) fclose(fp);
+        return;
+    }
+
+    // Verifica consistência dos arquivos
+    Cabecalho_s cab = lerCab(fp);
+    if (cab.status == '0') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fp);
+        return;
+    }
+
+    ESTACAO *est = estacao_criar();
+
+    int max = 100;
+    ESTACAO **estacoes = (ESTACAO**)malloc(sizeof(ESTACAO*) * max);
+
+    fseek(fp, 17, SEEK_SET);
+
+    int i = 0;
+    while(estacao_ler_bin(est, fp)) {
+        if (!estacao_removido(est)) {
+            // Realoca espaço caso o limite de memória reservada seja atingido
+            if (i >= max) {
+                max *= 2;
+                estacoes = (ESTACAO**)realloc(estacoes, sizeof(ESTACAO*) * max);
+            }
+            
+            estacoes[i] = est;
+            i++;
+
+            // Cria uma nova struct em branco para ser lida na próxima iteração
+            est = estacao_criar();
+        } else {
+            // Caso registro seja removido, apenas limpa a struct para reuso
+            estacao_esvaziar(est);
+        }
+    }
+    
+    // Remove a última struct instanciada que acabou atingindo o final do arquivo
+    estacao_apagar(&est);
+    fclose(fp); // O arquivo de origem pode ser fechado
+
+    // Ordenação na memória dependendo do campo solicitado
+    if (strcmp(campo, "codEstacao") == 0) {
+        qsort(estacoes, i, sizeof(ESTACAO*), compare_codEst);
+    } else if (strcmp(campo, "codProxEstacao") == 0) {
+        qsort(estacoes, i, sizeof(ESTACAO*), compare_codProxEst);
+    } else {
+        printf("Falha no processamento do arquivo.\n");
+        for (int j = 0; j < i; j++) estacao_apagar(&estacoes[j]);
+        free(estacoes);
+        return;
+    }
+
+    // Gravando os registros ordenados em um novo arquivo
+    FILE *fp2 = fopen(nomeArq2, "wb+");
+    if (!fp2) {
+        printf("Falha no processamento do arquivo.\n");
+        for (int j = 0; j < i; j++) estacao_apagar(&estacoes[j]);
+        free(estacoes);
+        return;
+    }
+
+    // Escreve o cabeçalho inicial para reservar o espaço e inicializar flags
+    cabecalho_escrever(fp2);
+
+    for (int j = 0; j < i; j++) {
+        // Grava no novo arquivo sem os campos logicamente removidos
+        estacao_escrever_bin(estacoes[j], fp2);
+        
+        // Desaloca a memória ocupada pela struct atual após a escrita
+        estacao_apagar(&estacoes[j]);
+    }
+    
+    // Libera a lista de vetores da RAM
+    free(estacoes);
+
+    // Volta para o início do novo arquivo binário e atualiza o cabeçalho propriamente
+    fseek(fp2, 0, SEEK_SET);
+    cabecalho_atualizar(fp2);
+    
+    fclose(fp2);
+
+    // Exibe o arquivo ordenado usando a função disponibilizada
+    BinarioNaTela(nomeArq2);
 }
