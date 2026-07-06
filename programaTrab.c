@@ -71,15 +71,17 @@ int main(void) {
             scanf(" %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice);
             execFuncionalidade11(arq, nomeDados, arqIn, nomeIndice);
             break;
-/*
+
         case 12: // Marca registros como logicamente removido no arquivo de dados e remove do índice
-            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            scanf(" %49s %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice, arqOut);
+            execFuncionalidade12(arq, nomeDados, arqIn, nomeIndice, arqOut);
             break;
 
         case 13: // Marca registros como logicamente removido no arquivo de dados e remove do índice
-            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+            scanf(" %49s %49s %49s", arq, nomeDados, arqOut);
+            execFuncionalidade13(arq, nomeDados, arqOut);
             break;
-
+/*
         case 14: // Marca registros como logicamente removido no arquivo de dados e remove do índice
             scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
             break;
