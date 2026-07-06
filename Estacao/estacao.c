@@ -427,6 +427,10 @@ int codProxEst(ESTACAO *estacao) {
    return estacao->codProxEst;
 }
 
+char *nomeLinha(ESTACAO *estacao) {
+   return estacao->nomeLinha;
+}
+
 char *nomeEst(ESTACAO *estacao) {
    return estacao->nomeEst;
 }
@@ -468,4 +472,35 @@ void estacao_codLinhaInt(ESTACAO *estacao, int codLinhaInt) {
 
 void estacao_codEstInt(ESTACAO *estacao, int codEstInt) {
    estacao->codEstInt = codEstInt;
+}
+
+/////
+
+// Funções auxiliares de comparação para o qsort
+int compare_codEst(const void *a, const void *b) {
+    ESTACAO *e1 = *(ESTACAO **)a;
+    ESTACAO *e2 = *(ESTACAO **)b;
+    
+    int c1 = codEst(e1);
+    int c2 = codEst(e2);
+    
+    // Valores nulos (-1) devem aparecer DEPOIS dos não nulos
+    if (c1 == -1 && c2 != -1) return 1;
+    if (c2 == -1 && c1 != -1) return -1;
+    
+    return c1 - c2;
+}
+
+int compare_codProxEst(const void *a, const void *b) {
+    ESTACAO *e1 = *(ESTACAO **)a;
+    ESTACAO *e2 = *(ESTACAO **)b;
+    
+    int c1 = codProxEst(e1);
+    int c2 = codProxEst(e2);
+    
+    // Valores nulos (-1) devem aparecer DEPOIS dos não nulos
+    if (c1 == -1 && c2 != -1) return 1;
+    if (c2 == -1 && c1 != -1) return -1;
+    
+    return c1 - c2;
 }

@@ -58,6 +58,9 @@
     // Retorna o código da próxima estação (campo codProxEst)
 	int codProxEst(ESTACAO *estacao);
 
+	// Retorna o ponteiro para a string do nome da linha (nomeLinha)
+	char *nomeLinha(ESTACAO *estacao);
+
     // Retorna o ponteiro para a string do nome da estação (nomeEst)
 	char *nomeEst(ESTACAO *estacao);
 
@@ -79,5 +82,12 @@
 	void estacao_codLinhaInt(ESTACAO *estacao, int codLinhaInt);
 
 	void estacao_codEstInt(ESTACAO *estacao, int codEstInt);
+
+	/////
+	
+	// Funções auxiliares de comparação para o qsort
+	int compare_codEst(const void *a, const void *b);
+
+	int compare_codProxEst(const void *a, const void *b);
 
 #endif
