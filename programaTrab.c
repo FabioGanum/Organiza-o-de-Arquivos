@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "Funcionalidades/funcionalidades.h"
-#include "juncao.c"
 
 int main(void) {
     int selector, n; // selector = funcionalidade, n = número de consultas
@@ -67,26 +66,27 @@ int main(void) {
             delete_from_indice(nomeDados, nomeIndice, n);
             break;
 
-        case 11: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+        case 11: // Executa junção de loop aninhado entre dois arquivos
             scanf(" %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice);
             execFuncionalidade11(arq, nomeDados, arqIn, nomeIndice);
             break;
 
-        case 12: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+        case 12: // Executa junção de loop único entre dois arquivos
             scanf(" %49s %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice, arqOut);
             execFuncionalidade12(arq, nomeDados, arqIn, nomeIndice, arqOut);
             break;
 
-        case 13: // Marca registros como logicamente removido no arquivo de dados e remove do índice
+        case 13: // Cria um novo arquivo ordenado a partir de um não-ordenado
             scanf(" %49s %49s %49s", arq, nomeDados, arqOut);
             execFuncionalidade13(arq, nomeDados, arqOut);
             break;
-/*
-        case 14: // Marca registros como logicamente removido no arquivo de dados e remove do índice
-            scanf(" %49s %49s %d", nomeDados, nomeIndice, &n);
+
+        case 14: // Executa junção ordenação-intercalação entre dois arquivos
+            scanf(" %49s %49s %49s %49s", arq, nomeDados, arqIn, nomeIndice);
+            execFuncionalidade14(arq, nomeDados, arqIn, nomeIndice);
             break;
 
         default:
-            break;*/
+            break;
     }
 }
