@@ -31,10 +31,16 @@
     // Marca como removidos os registros que atendem às condições WHERE usando índice. 
     void delete_from_indice(char *nomeDados, char *nomeIndice, int totalAtualizacoes);
 
+    // Executa junção de loop aninhado entre dois arquivos
     void execFuncionalidade11(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2);
 
+    // Executa junção de loop único entre dois arquivos
     void execFuncionalidade12(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2, char *nomeIndice);
 
+    // Cria um novo arquivo ordenado a partir de um não-ordenado
     void execFuncionalidade13(char *nomeArq, char *campo, char *nomeArq2);
+
+    // Executa junção ordenação-intercalação entre dois arquivos
+    void execFuncionalidade14(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2);
 
 #endif

@@ -7,7 +7,6 @@
 #include "../Cabecalho/cabecalho.h"
 #include "../Fornecidas/fornecidas.h"
 #include "../Indice/indice.c"
-#include "../juncao.c"
 /*
 Lê um arquivo CSV linha a linha (após pular o cabeçalho), converte cada linha em um registro ESTACAO e escreve no arquivo binário.
 Ao final, atualiza o cabeçalho do binário e chama BinarioNaTela.
@@ -1073,6 +1072,9 @@ void execFuncionalidade12(char *nomeArq1, char *campo1, char *nomeArq2, char *ca
     fclose(fpIndice);
 }
 
+/*
+ Criação de um novo arquivo ordenado à partir de um binário não-ordenado
+*/
 void execFuncionalidade13(char *nomeArq, char *campo, char *nomeArq2) {
     FILE *fp = fopen(nomeArq, "rb");
 
@@ -1164,4 +1166,133 @@ void execFuncionalidade13(char *nomeArq, char *campo, char *nomeArq2) {
 
     // Exibe o arquivo ordenado usando a função disponibilizada
     BinarioNaTela(nomeArq2);
+}
+
+/*
+ Junção usando ordenação-intercalação
+*/
+void execFuncionalidade14(char *nomeArq1, char *campo1, char *nomeArq2, char *campo2) {
+    FILE *fp1 = fopen(nomeArq1, "rb");
+    FILE *fp2 = fopen(nomeArq2, "rb");
+
+    if (!fp1 || !fp2) {
+        printf("Falha no processamento do arquivo.\n");
+        if (fp1) fclose(fp1);
+        if (fp2) fclose(fp2);
+        return;
+    }
+
+    // Verifica consistência dos arquivos
+    Cabecalho_s cab1 = lerCab(fp1);
+    Cabecalho_s cab2 = lerCab(fp2);
+    if (cab1.status == '0' || cab2.status == '0') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fp1);
+        fclose(fp2);
+        return;
+    }
+
+    ESTACAO *est = estacao_criar();
+
+    int max = 100;
+    int n1 = 0;
+    ESTACAO **estacoes1 = (ESTACAO**)malloc(sizeof(ESTACAO*) * max);
+
+    fseek(fp1, 17, SEEK_SET);
+    while(estacao_ler_bin(est, fp1)) {
+        if (!estacao_removido(est)) {
+            // Realoca espaço caso o limite de memória reservada seja atingido
+            if (n1 >= max) {
+                max *= 2;
+                estacoes1 = (ESTACAO**)realloc(estacoes1, sizeof(ESTACAO*) * max);
+            }
+            
+            estacoes1[n1] = est;
+            n1++;
+
+            // Cria uma nova struct em branco para ser lida na próxima iteração
+            est = estacao_criar();
+        } else {
+            // Caso registro seja removido, apenas limpa a struct para reuso
+            estacao_esvaziar(est);
+        }
+    }
+    
+    fclose(fp1); // O arquivo de origem pode ser fechado
+
+    max = 100;
+    int n2 = 0;
+    ESTACAO **estacoes2 = (ESTACAO**)malloc(sizeof(ESTACAO*) * max);
+
+    fseek(fp2, 17, SEEK_SET);
+    while(estacao_ler_bin(est, fp2)) {
+        if (!estacao_removido(est)) {
+            // Realoca espaço caso o limite de memória reservada seja atingido
+            if (n2 >= max) {
+                max *= 2;
+                estacoes2 = (ESTACAO**)realloc(estacoes2, sizeof(ESTACAO*) * max);
+            }
+            
+            estacoes2[n2] = est;
+            n2++;
+
+            // Cria uma nova struct em branco para ser lida na próxima iteração
+            est = estacao_criar();
+        } else {
+            // Caso registro seja removido, apenas limpa a struct para reuso
+            estacao_esvaziar(est);
+        }
+    }
+    
+    fclose(fp2); // O arquivo de origem pode ser fechado
+
+    estacao_apagar(&est);
+
+    qsort(estacoes1, n1, sizeof(ESTACAO*), compare_codProxEst);
+    qsort(estacoes2, n2, sizeof(ESTACAO*), compare_codEst);
+
+    bool encontrou = false;
+    int i = 0, j = 0;
+
+    while (i < n1 && j < n2) {
+        int v1 = codProxEst(estacoes1[i]);
+        int v2 = codEst(estacoes2[j]);
+
+        // Se chegamos nos valores nulos (-1) do arquivo 1, nenhum outro registro irá casar
+        if (v1 == -1) {
+            break;
+        }
+
+        if (v1 < v2) {
+            i++;
+        } else if (v1 > v2) {
+            j++;
+        } else {
+            // Encontrou: v1 == v2
+            // Printa: codEstacao nomeEstacao nomeLinha codProxEstacao nomeProxEstacao
+            printf("%d %s %s %d %s\n",
+                   codEst(estacoes1[i]),
+                   nomeEst(estacoes1[i]),
+                   nomeLinha(estacoes1[i]),
+                   v1,
+                   nomeEst(estacoes2[j]));
+            
+            encontrou = true;
+            
+            // Como codEstacao não se repete (chave única), avançamos no estacoes1 para verificar
+            // se o próximo registro também aponta para este mesmo ID.
+            i++;
+        }
+    }
+
+    if (!encontrou) {
+        printf("Registro inexistente.\n");
+    }
+
+    // Liberar memória dos arrays
+    for (int k = 0; k < n1; k++) estacao_apagar(&estacoes1[k]);
+    free(estacoes1);
+    
+    for (int k = 0; k < n2; k++) estacao_apagar(&estacoes2[k]);
+    free(estacoes2);
 }
